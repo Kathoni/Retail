@@ -32,4 +32,8 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
     path('add_transaction_api/', views.add_transaction_api, name='add_transaction_api'),
     path('get_dashboard_data/', views.get_dashboard_data, name='get_dashboard_data'),
+    path('process-voice/', views.process_voice, name='process_voice'),
+    path('process-voice-text/', views.process_voice_text, name='process_voice_text'),
+    path('update_transaction/', views.update_transaction, name='update_transaction'),
+    path('delete_transaction/<int:transaction_id>/', views.delete_transaction, name='delete_transaction'),
 ]

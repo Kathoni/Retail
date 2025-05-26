@@ -12,9 +12,11 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 import pickle
 import os
-from .models import AIInsight, Business, BusinessMetrics, ProfitPrediction, Transaction
+from .models import AIInsight, Business, BusinessMetrics, ProfitPrediction, Transaction, VoiceInput
 from django.contrib.auth import login
 from .forms import BusinessForm, RegisterForm
+from django.views.decorators.http import require_http_methods
+
 @login_required
 def dashboard(request):
     try:
@@ -71,6 +73,7 @@ def dashboard(request):
     }
 
     return render(request, 'dashboard.html', context)
+
 def calculate_daily_metrics(business, date):
     """Calculate and store daily metrics"""
     transactions = Transaction.objects.filter(
@@ -551,3 +554,152 @@ def get_dashboard_data(request):
     }
 
     return JsonResponse(response_data)
+
+@csrf_exempt
+@login_required
+def process_voice(request):
+    """Process uploaded voice recording"""
+    if request.method == 'POST' and request.FILES.get('audio'):
+        try:
+            business = get_object_or_404(Business, owner=request.user)
+            audio_file = request.FILES['audio']
+            
+            # Create voice input record
+            voice_input = VoiceInput.objects.create(
+                business=business,
+                audio_file=audio_file,
+                transcribed_text='',
+                processed=False
+            )
+            
+            # Process the audio file (you'll need to implement this based on your needs)
+            # This could use various speech-to-text services like Google Cloud Speech-to-Text,
+            # Azure Speech Services, or other solutions
+            
+            return JsonResponse({'success': True, 'voice_input_id': voice_input.id})
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request'})
+
+@csrf_exempt
+@login_required
+def process_voice_text(request):
+    """Process voice transcription text"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            transcript = data.get('transcript', '').lower()
+            business = get_object_or_404(Business, owner=request.user)
+            
+            # Extract transaction details from transcript
+            transaction_type = extract_transaction_type(transcript)
+            amount = extract_amount(transcript)
+            description = extract_description(transcript)
+            
+            if transaction_type and amount:
+                # Create transaction
+                transaction = Transaction.objects.create(
+                    business=business,
+                    transaction_type=transaction_type,
+                    amount=amount,
+                    description=description or transcript,
+                    input_method='voice'
+                )
+                
+                # Update metrics
+                calculate_daily_metrics(business, timezone.now().date())
+                
+                return JsonResponse({
+                    'success': True,
+                    'transaction_id': transaction.id,
+                    'message': f'Added {transaction_type} of ${amount}'
+                })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Could not extract transaction details from voice input'
+                })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request'})
+
+def extract_transaction_type(text):
+    """Extract transaction type from voice input"""
+    # Multi-language keywords for transaction types
+    sale_keywords = ['sale', 'sold', 'venta', 'vendido', 'vendu', 'verkauf', '销售', 'セール']
+    expense_keywords = ['expense', 'spent', 'gasto', 'dépense', 'ausgabe', '支出', '経費']
+    loss_keywords = ['loss', 'lost', 'pérdida', 'perte', 'verlust', '损失', '損失']
+    
+    text = text.lower()
+    
+    if any(keyword in text for keyword in sale_keywords):
+        return 'sale'
+    elif any(keyword in text for keyword in expense_keywords):
+        return 'expense'
+    elif any(keyword in text for keyword in loss_keywords):
+        return 'loss'
+    
+    return None
+
+def extract_amount(text):
+    """Extract amount from voice input"""
+    # Regular expression to find numbers with optional decimal points
+    # This will work for various number formats (e.g., 100, 100.00, 1,000.00)
+    import re
+    
+    # Remove currency symbols and commas
+    text = text.replace('$', '').replace('€', '').replace('£', '').replace('¥', '').replace(',', '')
+    
+    # Find all numbers in the text
+    numbers = re.findall(r'\d+(?:\.\d{1,2})?', text)
+    
+    if numbers:
+        # Return the first number found
+        return float(numbers[0])
+    
+    return None
+
+def extract_description(text):
+    """Extract description from voice input"""
+    # Common phrases to ignore in various languages
+    ignore_phrases = [
+        'add', 'record', 'new', 'transaction', 'sale', 'expense', 'loss',
+        'añadir', 'registrar', 'nueva', 'transacción', 'venta', 'gasto', 'pérdida',
+        'ajouter', 'enregistrer', 'nouvelle', 'transaction', 'vente', 'dépense', 'perte'
+    ]
+    
+    # Remove common phrases and clean up the text
+    words = text.lower().split()
+    description_words = [w for w in words if w not in ignore_phrases]
+    
+    return ' '.join(description_words).capitalize() if description_words else None
+
+@require_http_methods(["POST"])
+def update_transaction(request):
+    try:
+        data = json.loads(request.body)
+        transaction_id = data.get('transaction_id')
+        transaction = get_object_or_404(Transaction, id=transaction_id)
+        
+        # Update transaction fields
+        transaction.description = data.get('description', transaction.description)
+        transaction.amount = data.get('amount', transaction.amount)
+        transaction.transaction_type = data.get('transaction_type', transaction.transaction_type)
+        
+        transaction.save()
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@require_http_methods(["POST"])
+def delete_transaction(request, transaction_id):
+    try:
+        transaction = get_object_or_404(Transaction, id=transaction_id)
+        transaction.delete()
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

@@ -1,6 +1,25 @@
 {% extends 'base.html' %}
 
 {% block content %}
+        <!-- Theme Switcher -->
+        <div class="theme-switcher">
+            <button class="theme-btn" id="themeToggle">
+                <i class="fas fa-sun" id="themeIcon"></i>
+                <span id="themeText">Light Mode</span>
+            </button>
+        </div>
+
+        <!-- Recording UI -->
+        <div class="recording-ui" id="recordingUI">
+            <div class="recording-status" id="recordingStatus">Click the microphone to start recording</div>
+            <div class="visualizer" id="recordingVisualizer">
+                {% for i in "123456789"|make_list %}
+                <div class="visualizer-bar"></div>
+                {% endfor %}
+            </div>
+            <div class="recording-language" id="detectedLanguage">Language: Auto-detect</div>
+        </div>
+
         <!-- Dashboard Metrics -->
         <div class="dashboard-grid">
             <div class="card profit-card">
@@ -124,16 +143,20 @@
             <h3>Quick Actions</h3>
             <div class="quick-actions">
                 <button class="action-btn" onclick="addTransaction('sale')">
-                    💰 Add Sale
+                    <i class="fas fa-plus-circle"></i>
+                    Add Sale
                 </button>
                 <button class="action-btn" onclick="addTransaction('expense')">
-                    💸 Add Expense
+                    <i class="fas fa-minus-circle"></i>
+                    Add Expense
                 </button>
                 <button class="action-btn" onclick="addTransaction('loss')">
-                    📉 Record Loss
+                    <i class="fas fa-exclamation-circle"></i>
+                    Record Loss
                 </button>
-                <button class="action-btn photo-btn" onclick="startPhotoInput()">
-                    📸 Photo Receipt
+                <button class="action-btn record-btn" id="recordBtn">
+                    <i class="fas fa-microphone"></i>
+                    Voice Record
                 </button>
             </div>
         </div>
@@ -149,12 +172,13 @@
                         <th>Category</th>
                         <th>Amount</th>
                         <th>AI Insight</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% if recent_transactions %}
                         {% for transaction in recent_transactions %}
-                            <tr>
+                            <tr data-transaction-id="{{ transaction.id }}">
                                 <td>{{ transaction.timestamp|date:"g:i A" }}</td>
                                 <td>{{ transaction.description }}</td>
                                 <td>{{ transaction.transaction_type|title }}</td>
@@ -163,11 +187,17 @@
                                     ${{ transaction.amount|floatformat:2 }}
                                 </td>
                                 <td>{{ transaction.ai_insight }}</td>
+                                <td>
+                                    <div class="transaction-actions">
+                                        <i class="fas fa-edit action-icon edit-icon" onclick="editTransaction({{ transaction.id }})"></i>
+                                        <i class="fas fa-trash-alt action-icon delete-icon" onclick="deleteTransaction({{ transaction.id }})"></i>
+                                    </div>
+                                </td>
                             </tr>
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td colspan="5" class="no-data-message">
+                            <td colspan="6" class="no-data-message">
                                 No transactions recorded yet. Use the Quick Actions above to add your first transaction.
                             </td>
                         </tr>
@@ -175,4 +205,331 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Edit Transaction Modal -->
+        <div class="modal" id="editModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Edit Transaction</h3>
+                    <span class="modal-close" onclick="closeModal()">&times;</span>
+                </div>
+                <form id="editTransactionForm" class="modal-form">
+                    <input type="hidden" id="transactionId" name="transaction_id">
+                    <div class="form-group">
+                        <label for="description">Description</label>
+                        <input type="text" id="description" name="description" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="amount">Amount</label>
+                        <input type="number" id="amount" name="amount" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="transactionType">Type</label>
+                        <select id="transactionType" name="transaction_type" required>
+                            <option value="sale">Sale</option>
+                            <option value="expense">Expense</option>
+                            <option value="loss">Loss</option>
+                        </select>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-danger" onclick="closeModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/js/all.min.js"></script>
+<script>
+// Theme Switching
+class ThemeManager {
+    constructor() {
+        this.themeToggle = document.getElementById('themeToggle');
+        this.themeIcon = document.getElementById('themeIcon');
+        this.themeText = document.getElementById('themeText');
+        this.isDark = localStorage.getItem('darkTheme') === 'true';
+        
+        this.initialize();
+        this.setupEventListeners();
+    }
+
+    initialize() {
+        if (this.isDark) {
+            document.body.classList.add('dark-theme');
+            this.updateThemeUI(true);
+        }
+    }
+
+    setupEventListeners() {
+        this.themeToggle.addEventListener('click', () => this.toggleTheme());
+    }
+
+    toggleTheme() {
+        this.isDark = !this.isDark;
+        document.body.classList.toggle('dark-theme');
+        localStorage.setItem('darkTheme', this.isDark);
+        this.updateThemeUI(this.isDark);
+    }
+
+    updateThemeUI(isDark) {
+        this.themeIcon.className = isDark ? 'fas fa-moon' : 'fas fa-sun';
+        this.themeText.textContent = isDark ? 'Dark Mode' : 'Light Mode';
+    }
+}
+
+// Voice Recording
+class VoiceRecorder {
+    constructor() {
+        this.mediaRecorder = null;
+        this.audioChunks = [];
+        this.isRecording = false;
+        this.recognition = null;
+        this.setupVoiceRecognition();
+        this.setupUI();
+        this.setupVisualizer();
+    }
+
+    setupVoiceRecognition() {
+        if ('webkitSpeechRecognition' in window) {
+            this.recognition = new webkitSpeechRecognition();
+        } else if ('SpeechRecognition' in window) {
+            this.recognition = new SpeechRecognition();
+        } else {
+            console.error('Speech recognition not supported');
+            return;
+        }
+
+        this.recognition.continuous = true;
+        this.recognition.interimResults = true;
+        this.recognition.lang = 'auto';
+
+        this.recognition.onresult = (event) => {
+            const result = event.results[event.results.length - 1];
+            if (result.isFinal) {
+                const transcript = result[0].transcript;
+                const language = result[0].lang || 'auto';
+                this.updateLanguageDisplay(language);
+                this.processVoiceInput(transcript);
+            }
+        };
+
+        this.recognition.onend = () => {
+            if (this.isRecording) {
+                this.recognition.start();
+            }
+        };
+    }
+
+    setupUI() {
+        this.recordBtn = document.getElementById('recordBtn');
+        this.recordingUI = document.getElementById('recordingUI');
+        this.recordingStatus = document.getElementById('recordingStatus');
+        this.detectedLanguage = document.getElementById('detectedLanguage');
+        
+        if (this.recordBtn) {
+            this.recordBtn.addEventListener('click', () => this.toggleRecording());
+        }
+    }
+
+    setupVisualizer() {
+        this.visualizerBars = document.querySelectorAll('.visualizer-bar');
+        this.animateVisualizer();
+    }
+
+    updateLanguageDisplay(language) {
+        const languageNames = new Intl.DisplayNames(['en'], { type: 'language' });
+        const languageName = languageNames.of(language) || 'Auto-detect';
+        this.detectedLanguage.textContent = `Language: ${languageName}`;
+    }
+
+    animateVisualizer() {
+        if (this.isRecording) {
+            this.visualizerBars.forEach(bar => {
+                const height = Math.random() * 100;
+                bar.style.transform = `scaleY(${height}%)`;
+            });
+        }
+        requestAnimationFrame(() => this.animateVisualizer());
+    }
+
+    async toggleRecording() {
+        if (!this.isRecording) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                this.startRecording(stream);
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                alert('Unable to access microphone. Please check permissions.');
+            }
+        } else {
+            this.stopRecording();
+        }
+    }
+
+    startRecording(stream) {
+        this.isRecording = true;
+        this.recordBtn.classList.add('recording');
+        this.recordingUI.classList.add('active');
+        this.recordingStatus.textContent = 'Recording...';
+        this.recognition.start();
+
+        this.mediaRecorder = new MediaRecorder(stream);
+        this.audioChunks = [];
+
+        this.mediaRecorder.ondataavailable = (event) => {
+            this.audioChunks.push(event.data);
+        };
+
+        this.mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
+            this.uploadAudio(audioBlob);
+        };
+
+        this.mediaRecorder.start();
+    }
+
+    stopRecording() {
+        this.isRecording = false;
+        this.recordBtn.classList.remove('recording');
+        this.recordingUI.classList.remove('active');
+        this.recordingStatus.textContent = 'Click the microphone to start recording';
+        this.recognition.stop();
+        this.mediaRecorder.stop();
+        this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    }
+
+    async uploadAudio(audioBlob) {
+        const formData = new FormData();
+        formData.append('audio', audioBlob);
+
+        try {
+            const response = await fetch('/tracker/process_voice/', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success) {
+                updateDashboardData();
+            }
+        } catch (err) {
+            console.error('Error uploading audio:', err);
+        }
+    }
+
+    async processVoiceInput(transcript) {
+        try {
+            const response = await fetch('/tracker/process_voice_text/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ transcript: transcript })
+            });
+            const data = await response.json();
+            if (data.success) {
+                this.recordingStatus.textContent = 'Transaction recorded!';
+                setTimeout(() => {
+                    this.recordingStatus.textContent = 'Recording...';
+                }, 2000);
+                updateDashboardData();
+            }
+        } catch (err) {
+            console.error('Error processing voice input:', err);
+        }
+    }
+}
+
+// Transaction Management
+function editTransaction(transactionId) {
+    const row = document.querySelector(`tr[data-transaction-id="${transactionId}"]`);
+    const modal = document.getElementById('editModal');
+    const form = document.getElementById('editTransactionForm');
+    
+    document.getElementById('transactionId').value = transactionId;
+    document.getElementById('description').value = row.children[1].textContent;
+    document.getElementById('transactionType').value = row.children[2].textContent.toLowerCase();
+    document.getElementById('amount').value = row.children[3].textContent.replace(/[^0-9.-]+/g, '');
+    
+    modal.classList.add('active');
+}
+
+function closeModal() {
+    document.getElementById('editModal').classList.remove('active');
+}
+
+async function deleteTransaction(transactionId) {
+    if (confirm('Are you sure you want to delete this transaction?')) {
+        try {
+            const response = await fetch(`/tracker/delete_transaction/${transactionId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            if (response.ok) {
+                updateDashboardData();
+            }
+        } catch (err) {
+            console.error('Error deleting transaction:', err);
+        }
+    }
+}
+
+document.getElementById('editTransactionForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    try {
+        const response = await fetch('/tracker/update_transaction/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(Object.fromEntries(formData))
+        });
+        if (response.ok) {
+            closeModal();
+            updateDashboardData();
+        }
+    } catch (err) {
+        console.error('Error updating transaction:', err);
+    }
+});
+
+// Helper Functions
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+async function updateDashboardData() {
+    try {
+        const response = await fetch('/tracker/get_dashboard_data/');
+        const data = await response.json();
+        // Update your dashboard elements with the new data
+        location.reload(); // For now, just reload the page
+    } catch (err) {
+        console.error('Error updating dashboard:', err);
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    const themeManager = new ThemeManager();
+    const voiceRecorder = new VoiceRecorder();
+});
+</script>
 {% endblock %}

@@ -15,22 +15,22 @@ function getCookie(name) {
 }
 
 // Add a new transaction
-function addTransaction(type) {
-    const amount = prompt(`Enter amount for ${type}:`);
+        function addTransaction(type) {
+            const amount = prompt(`Enter amount for ${type}:`);
     if (!amount || isNaN(parseFloat(amount))) {
         showNotification('Error: Please enter a valid amount', 'error');
         return;
     }
 
-    const description = prompt('Enter description:');
+            const description = prompt('Enter description:');
     if (!description) {
         showNotification('Error: Please enter a description', 'error');
         return;
     }
-    
+            
     const data = {
-        type: type,
-        amount: parseFloat(amount),
+                    type: type,
+                    amount: parseFloat(amount),
         description: description
     };
 
@@ -163,8 +163,8 @@ function updateTransactionsTable(transactions) {
 
 // Show notification
 function showNotification(message, type = 'success') {
-    const notification = document.createElement('div');
-    notification.innerHTML = message;
+            const notification = document.createElement('div');
+            notification.innerHTML = message;
     
     const colors = {
         success: 'linear-gradient(135deg, #4CAF50, #45a049)',
@@ -172,43 +172,43 @@ function showNotification(message, type = 'success') {
         info: 'linear-gradient(135deg, #2196F3, #1976D2)'
     };
 
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
         background: ${colors[type]};
-        color: white;
-        padding: 15px 25px;
-        border-radius: 10px;
-        font-weight: 600;
-        z-index: 1000;
-        animation: slideIn 0.3s ease;
-    `;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.remove();
-    }, 3000);
-}
+                color: white;
+                padding: 15px 25px;
+                border-radius: 10px;
+                font-weight: 600;
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
 
 // Photo input placeholder
 function startPhotoInput() {
     showNotification('📸 Photo capture feature coming soon!', 'info');
 }
 
-// Initialize dashboard
-document.addEventListener('DOMContentLoaded', function() {
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
     // Set up periodic updates
     setInterval(updateDashboardData, 30000); // Update every 30 seconds
-});
+        });
 
-// Add CSS animation for notifications
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-`;
-document.head.appendChild(style);
+        // Add CSS animation for notifications
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
