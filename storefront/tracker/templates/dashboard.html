@@ -1,147 +1,107 @@
 {% extends 'base.html' %}
 
+{% block title %}Dashboard - Smart Trader Analytics{% endblock %}
+{% load static %}
+{% block css %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+{% endblock %}
+
+
 {% block content %}
-        <!-- Theme Switcher -->
-        <div class="theme-switcher">
-            <button class="theme-btn" id="themeToggle">
-                <i class="fas fa-sun" id="themeIcon"></i>
-                <span id="themeText">Light Mode</span>
-            </button>
-        </div>
+    <!-- Theme Switcher -->
+    <div class="theme-switcher">
+        <button class="theme-btn" id="themeToggle">
+            <i class="fas fa-sun" id="themeIcon"></i>
+            <span id="themeText">Light Mode</span>
+        </button>
+    </div>
 
-        <!-- Recording UI -->
-        <div class="recording-ui" id="recordingUI">
-            <div class="recording-status" id="recordingStatus">Click the microphone to start recording</div>
-            <div class="visualizer" id="recordingVisualizer">
-                {% for i in "123456789"|make_list %}
-                <div class="visualizer-bar"></div>
-                {% endfor %}
-            </div>
-            <div class="recording-language" id="detectedLanguage">Language: Auto-detect</div>
-        </div>
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <h1>Welcome, {{ request.user.username }}</h1>
+        <p>{{ request.user.business.name }} - {{ request.user.business.business_type|title }}</p>
+    </div>
 
-        <!-- Dashboard Metrics -->
-        <div class="dashboard-grid">
-            <div class="card profit-card">
-                <div class="metric-label">Today's Revenue</div>
-                {% if today_metrics.total_revenue %}
-                    <div class="metric-value">${{ today_metrics.total_revenue|floatformat:2 }}
-                        {% if today_metrics.revenue_trend > 0 %}
-                            <span class="trend-indicator trend-up">↗</span>
-                        {% elif today_metrics.revenue_trend < 0 %}
-                            <span class="trend-indicator trend-down">↘</span>
-                        {% endif %}
-                    </div>
-                    <div class="metric-trend">
-                        {% if today_metrics.revenue_trend > 0 %}+{% endif %}
-                        {{ today_metrics.revenue_trend|floatformat:0 }}% from yesterday
-                    </div>
-                {% else %}
-                    <div class="metric-value">$0.00</div>
-                    <div class="metric-trend">No revenue data yet</div>
-                {% endif %}
-            </div>
-
-            <div class="card loss-card">
-                <div class="metric-label">Today's Expenses</div>
-                {% if today_metrics.total_expenses %}
-                    <div class="metric-value">${{ today_metrics.total_expenses|floatformat:2 }}
-                        {% if today_metrics.expense_trend > 0 %}
-                            <span class="trend-indicator trend-up">↗</span>
-                        {% elif today_metrics.expense_trend < 0 %}
-                            <span class="trend-indicator trend-down">↘</span>
-                        {% endif %}
-                    </div>
-                    <div class="metric-trend">
-                        {% if today_metrics.expense_trend > 0 %}+{% endif %}
-                        {{ today_metrics.expense_trend|floatformat:0 }}% from yesterday
-                    </div>
-                {% else %}
-                    <div class="metric-value">$0.00</div>
-                    <div class="metric-trend">No expense data yet</div>
-                {% endif %}
-            </div>
-
-            <div class="card">
-                <div class="metric-label">Net Profit</div>
-                {% if today_metrics.total_profit %}
-                    <div class="metric-value {% if today_metrics.total_profit >= 0 %}profit-positive{% else %}profit-negative{% endif %}">
-                        ${{ today_metrics.total_profit|floatformat:2 }}
-                    </div>
-                    <div class="metric-subtitle">
-                        Profit Margin: {{ today_metrics.profit_margin|floatformat:1 }}%
-                    </div>
-                {% else %}
-                    <div class="metric-value">$0.00</div>
-                    <div class="metric-subtitle">No profit data yet</div>
-                {% endif %}
-            </div>
-
-            <div class="card">
-                <div class="metric-label">AI Risk Score</div>
-                {% if today_metrics.risk_score %}
-                    <div class="metric-value risk-score-{% if today_metrics.risk_score < 4 %}low{% elif today_metrics.risk_score < 7 %}medium{% else %}high{% endif %}">
-                        {{ today_metrics.risk_score|floatformat:1 }}/10
-                    </div>
-                    <div class="metric-subtitle">
-                        {% if today_metrics.risk_score < 4 %}Low Risk Level
-                        {% elif today_metrics.risk_score < 7 %}Medium Risk Level
-                        {% else %}High Risk Level{% endif %}
-                    </div>
-                {% else %}
-                    <div class="metric-value risk-score-none">-/10</div>
-                    <div class="metric-subtitle">Insufficient data</div>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- AI Insights Section -->
-        <div class="ai-insights">
-            <h3>🤖 AI Loss Prevention Insights</h3>
-            
-            {% if ai_insights %}
-                {% for insight in ai_insights %}
-                    <div class="insight-item">
-                        <div class="insight-severity severity-{{ insight.severity|lower }}">
-                            {{ insight.severity|upper }} PRIORITY
-                        </div>
-                        <h4>{{ insight.title }}</h4>
-                        <p>{{ insight.description }}</p>
-                    </div>
-                {% endfor %}
-            {% else %}
-                <div class="insight-item">
-                    <div class="insight-severity severity-low">NO INSIGHTS YET</div>
-                    <h4>Start Adding Transactions</h4>
-                    <p>Add your business transactions to receive AI-powered insights and recommendations.</p>
+    <!-- Dashboard Metrics -->
+    <div class="dashboard-grid">
+        <div class="card profit-card">
+            <div class="metric-label">Today's Revenue</div>
+            {% if today_metrics.total_revenue %}
+                <div class="metric-value">${{ today_metrics.total_revenue|floatformat:2 }}
+                    {% if today_metrics.revenue_trend > 0 %}
+                        <span class="trend-indicator trend-up">↗</span>
+                    {% elif today_metrics.revenue_trend < 0 %}
+                        <span class="trend-indicator trend-down">↘</span>
+                    {% endif %}
                 </div>
+                <div class="metric-trend">
+                    {% if today_metrics.revenue_trend > 0 %}+{% endif %}
+                    {{ today_metrics.revenue_trend|floatformat:0 }}% from yesterday
+                </div>
+            {% else %}
+                <div class="metric-value">$0.00</div>
+                <div class="metric-trend">No revenue data yet</div>
             {% endif %}
         </div>
 
-        <!-- Prediction Box -->
-        <div class="prediction-box">
-            <h3>📊 AI Profit Prediction - Next 7 Days</h3>
-            {% if predictions %}
-                <div class="prediction-range">
-                    Expected Profit Range: <strong>${{ predictions.0.revenue_low|floatformat:0 }} - ${{ predictions.0.revenue_high|floatformat:0 }}</strong>
+        <div class="card loss-card">
+            <div class="metric-label">Today's Expenses</div>
+            {% if today_metrics.total_expenses %}
+                <div class="metric-value">${{ today_metrics.total_expenses|floatformat:2 }}
+                    {% if today_metrics.expense_trend > 0 %}
+                        <span class="trend-indicator trend-up">↗</span>
+                    {% elif today_metrics.expense_trend < 0 %}
+                        <span class="trend-indicator trend-down">↘</span>
+                    {% endif %}
                 </div>
-                <div class="prediction-accuracy">
-                    <strong>Model Accuracy:</strong> {{ predictions.0.model_accuracy|floatformat:0 }}%
+                <div class="metric-trend">
+                    {% if today_metrics.expense_trend > 0 %}+{% endif %}
+                    {{ today_metrics.expense_trend|floatformat:0 }}% from yesterday
                 </div>
             {% else %}
-                <div class="prediction-range">
-                    <strong>Insufficient data for predictions</strong>
-                </div>
-                <div class="prediction-accuracy">
-                    Add more transactions to receive AI-powered predictions
-                </div>
+                <div class="metric-value">$0.00</div>
+                <div class="metric-trend">No expense data yet</div>
             {% endif %}
         </div>
 
-        <!-- Quick Actions -->
         <div class="card">
+            <div class="metric-label">Net Profit</div>
+            {% if today_metrics.total_profit %}
+                <div class="metric-value {% if today_metrics.total_profit >= 0 %}profit-positive{% else %}profit-negative{% endif %}">
+                    ${{ today_metrics.total_profit|floatformat:2 }}
+                </div>
+                <div class="metric-subtitle">
+                    Profit Margin: {{ today_metrics.profit_margin|floatformat:1 }}%
+                </div>
+            {% else %}
+                <div class="metric-value">$0.00</div>
+                <div class="metric-subtitle">No profit data yet</div>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <div class="metric-label">AI Risk Score</div>
+            {% if today_metrics.risk_score %}
+                <div class="metric-value risk-score-{% if today_metrics.risk_score < 4 %}low{% elif today_metrics.risk_score < 7 %}medium{% else %}high{% endif %}">
+                    {{ today_metrics.risk_score|floatformat:1 }}/10
+                </div>
+                <div class="metric-subtitle">
+                    {% if today_metrics.risk_score < 4 %}Low Risk Level
+                    {% elif today_metrics.risk_score < 7 %}Medium Risk Level
+                    {% else %}High Risk Level{% endif %}
+                </div>
+            {% else %}
+                <div class="metric-value risk-score-none">-/10</div>
+                <div class="metric-subtitle">Insufficient data</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card">
+        <div class="quick-actions">
             <h3>Quick Actions</h3>
-            <div class="quick-actions">
+            <div class="action-buttons">
                 <button class="action-btn" onclick="addTransaction('sale')">
                     <i class="fas fa-plus-circle"></i>
                     Add Sale
@@ -160,84 +120,145 @@
                 </button>
             </div>
         </div>
+    </div>
 
-        <!-- Recent Transactions -->
-        <div class="card">
-            <h3>Recent Transactions</h3>
-            <table class="transactions-table">
-                <thead>
-                    <tr>
-                        <th>Time</th>
-                        <th>Description</th>
-                        <th>Category</th>
-                        <th>Amount</th>
-                        <th>AI Insight</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% if recent_transactions %}
-                        {% for transaction in recent_transactions %}
-                            <tr data-transaction-id="{{ transaction.id }}">
-                                <td>{{ transaction.timestamp|date:"g:i A" }}</td>
-                                <td>{{ transaction.description }}</td>
-                                <td>{{ transaction.transaction_type|title }}</td>
-                                <td class="amount-{% if transaction.transaction_type == 'sale' %}positive{% else %}negative{% endif %}">
-                                    {% if transaction.transaction_type == 'sale' %}+{% endif %}
-                                    ${{ transaction.amount|floatformat:2 }}
-                                </td>
-                                <td>{{ transaction.ai_insight }}</td>
-                                <td>
-                                    <div class="transaction-actions">
-                                        <i class="fas fa-edit action-icon edit-icon" onclick="editTransaction({{ transaction.id }})"></i>
-                                        <i class="fas fa-trash-alt action-icon delete-icon" onclick="deleteTransaction({{ transaction.id }})"></i>
-                                    </div>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    {% else %}
-                        <tr>
-                            <td colspan="6" class="no-data-message">
-                                No transactions recorded yet. Use the Quick Actions above to add your first transaction.
+    <!-- AI Insights Section -->
+    <div class="card">
+        <h3>🤖 AI Loss Prevention Insights</h3>
+        {% if ai_insights %}
+            {% for insight in ai_insights %}
+                <div class="insight-item">
+                    <div class="insight-severity severity-{{ insight.severity|lower }}">
+                        {{ insight.severity|upper }} PRIORITY
+                    </div>
+                    <h4>{{ insight.title }}</h4>
+                    <p>{{ insight.description }}</p>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="insight-item">
+                <div class="insight-severity severity-low">NO INSIGHTS YET</div>
+                <h4>Start Adding Transactions</h4>
+                <p>Add your business transactions to receive AI-powered insights and recommendations.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="card">
+        <h3>Recent Transactions</h3>
+        <table class="transactions-table">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Description</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>AI Insight</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if recent_transactions %}
+                    {% for transaction in recent_transactions %}
+                        <tr data-transaction-id="{{ transaction.id }}">
+                            <td>{{ transaction.timestamp|date:"g:i A" }}</td>
+                            <td>{{ transaction.description }}</td>
+                            <td>{{ transaction.transaction_type|title }}</td>
+                            <td class="amount-{% if transaction.transaction_type == 'sale' %}positive{% else %}negative{% endif %}">
+                                {% if transaction.transaction_type == 'sale' %}+{% endif %}
+                                ${{ transaction.amount|floatformat:2 }}
+                            </td>
+                            <td>{{ transaction.ai_insight }}</td>
+                            <td>
+                                <button class="action-btn" onclick="editTransaction('{{ transaction.id }}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="action-btn" onclick="deleteTransaction('{{ transaction.id }}')">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
                             </td>
                         </tr>
-                    {% endif %}
-                </tbody>
-            </table>
-        </div>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center;">
+                            No transactions recorded yet. Use the Quick Actions above to add your first transaction.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
 
-        <!-- Edit Transaction Modal -->
-        <div class="modal" id="editModal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Edit Transaction</h3>
-                    <span class="modal-close" onclick="closeModal()">&times;</span>
-                </div>
-                <form id="editTransactionForm" class="modal-form">
-                    <input type="hidden" id="transactionId" name="transaction_id">
-                    <div class="form-group">
-                        <label for="description">Description</label>
-                        <input type="text" id="description" name="description" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="amount">Amount</label>
-                        <input type="number" id="amount" name="amount" step="0.01" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="transactionType">Type</label>
-                        <select id="transactionType" name="transaction_type" required>
-                            <option value="sale">Sale</option>
-                            <option value="expense">Expense</option>
-                            <option value="loss">Loss</option>
-                        </select>
-                    </div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn-danger" onclick="closeModal()">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Changes</button>
-                    </div>
-                </form>
+    <!-- Edit Transaction Modal -->
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Transaction</h3>
+                <span class="modal-close" onclick="closeModal()">&times;</span>
             </div>
+            <form id="editTransactionForm" class="modal-form">
+                <input type="hidden" id="transactionId" name="transaction_id">
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <input type="text" id="description" name="description" required>
+                </div>
+                <div class="form-group">
+                    <label for="amount">Amount</label>
+                    <input type="number" id="amount" name="amount" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="transactionType">Type</label>
+                    <select id="transactionType" name="transaction_type" required>
+                        <option value="sale">Sale</option>
+                        <option value="expense">Expense</option>
+                        <option value="loss">Loss</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-danger" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
         </div>
+    </div>
+
+    <!-- Add Transaction Modal -->
+    <div class="modal" id="addTransactionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="transactionModalTitle">Add Transaction</h3>
+                <span class="modal-close" onclick="closeModal('addTransactionModal')">&times;</span>
+            </div>
+            <form id="addTransactionForm" class="modal-form">
+                <input type="hidden" id="newTransactionType" name="transaction_type">
+                <div class="form-group">
+                    <label for="newDescription">Description</label>
+                    <input type="text" id="newDescription" name="description" required>
+                </div>
+                <div class="form-group">
+                    <label for="newAmount">Amount</label>
+                    <input type="number" id="newAmount" name="amount" step="0.01" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-danger" onclick="closeModal('addTransactionModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Recording UI -->
+    <div class="recording-ui" id="recordingUI">
+        <div class="recording-status" id="recordingStatus">Click the microphone to start recording</div>
+        <div class="visualizer" id="recordingVisualizer">
+            {% for i in "123456789"|make_list %}
+            <div class="visualizer-bar"></div>
+            {% endfor %}
+        </div>
+        <div class="recording-language" id="detectedLanguage">Language: Auto-detect</div>
+    </div>
 {% endblock %}
 
 {% block extra_js %}
@@ -279,168 +300,10 @@ class ThemeManager {
     }
 }
 
-// Voice Recording
-class VoiceRecorder {
-    constructor() {
-        this.mediaRecorder = null;
-        this.audioChunks = [];
-        this.isRecording = false;
-        this.recognition = null;
-        this.setupVoiceRecognition();
-        this.setupUI();
-        this.setupVisualizer();
-    }
-
-    setupVoiceRecognition() {
-        if ('webkitSpeechRecognition' in window) {
-            this.recognition = new webkitSpeechRecognition();
-        } else if ('SpeechRecognition' in window) {
-            this.recognition = new SpeechRecognition();
-        } else {
-            console.error('Speech recognition not supported');
-            return;
-        }
-
-        this.recognition.continuous = true;
-        this.recognition.interimResults = true;
-        this.recognition.lang = 'auto';
-
-        this.recognition.onresult = (event) => {
-            const result = event.results[event.results.length - 1];
-            if (result.isFinal) {
-                const transcript = result[0].transcript;
-                const language = result[0].lang || 'auto';
-                this.updateLanguageDisplay(language);
-                this.processVoiceInput(transcript);
-            }
-        };
-
-        this.recognition.onend = () => {
-            if (this.isRecording) {
-                this.recognition.start();
-            }
-        };
-    }
-
-    setupUI() {
-        this.recordBtn = document.getElementById('recordBtn');
-        this.recordingUI = document.getElementById('recordingUI');
-        this.recordingStatus = document.getElementById('recordingStatus');
-        this.detectedLanguage = document.getElementById('detectedLanguage');
-        
-        if (this.recordBtn) {
-            this.recordBtn.addEventListener('click', () => this.toggleRecording());
-        }
-    }
-
-    setupVisualizer() {
-        this.visualizerBars = document.querySelectorAll('.visualizer-bar');
-        this.animateVisualizer();
-    }
-
-    updateLanguageDisplay(language) {
-        const languageNames = new Intl.DisplayNames(['en'], { type: 'language' });
-        const languageName = languageNames.of(language) || 'Auto-detect';
-        this.detectedLanguage.textContent = `Language: ${languageName}`;
-    }
-
-    animateVisualizer() {
-        if (this.isRecording) {
-            this.visualizerBars.forEach(bar => {
-                const height = Math.random() * 100;
-                bar.style.transform = `scaleY(${height}%)`;
-            });
-        }
-        requestAnimationFrame(() => this.animateVisualizer());
-    }
-
-    async toggleRecording() {
-        if (!this.isRecording) {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                this.startRecording(stream);
-            } catch (err) {
-                console.error('Error accessing microphone:', err);
-                alert('Unable to access microphone. Please check permissions.');
-            }
-        } else {
-            this.stopRecording();
-        }
-    }
-
-    startRecording(stream) {
-        this.isRecording = true;
-        this.recordBtn.classList.add('recording');
-        this.recordingUI.classList.add('active');
-        this.recordingStatus.textContent = 'Recording...';
-        this.recognition.start();
-
-        this.mediaRecorder = new MediaRecorder(stream);
-        this.audioChunks = [];
-
-        this.mediaRecorder.ondataavailable = (event) => {
-            this.audioChunks.push(event.data);
-        };
-
-        this.mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
-            this.uploadAudio(audioBlob);
-        };
-
-        this.mediaRecorder.start();
-    }
-
-    stopRecording() {
-        this.isRecording = false;
-        this.recordBtn.classList.remove('recording');
-        this.recordingUI.classList.remove('active');
-        this.recordingStatus.textContent = 'Click the microphone to start recording';
-        this.recognition.stop();
-        this.mediaRecorder.stop();
-        this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
-    }
-
-    async uploadAudio(audioBlob) {
-        const formData = new FormData();
-        formData.append('audio', audioBlob);
-
-        try {
-            const response = await fetch('/tracker/process_voice/', {
-                method: 'POST',
-                body: formData
-            });
-            const data = await response.json();
-            if (data.success) {
-                updateDashboardData();
-            }
-        } catch (err) {
-            console.error('Error uploading audio:', err);
-        }
-    }
-
-    async processVoiceInput(transcript) {
-        try {
-            const response = await fetch('/tracker/process_voice_text/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify({ transcript: transcript })
-            });
-            const data = await response.json();
-            if (data.success) {
-                this.recordingStatus.textContent = 'Transaction recorded!';
-                setTimeout(() => {
-                    this.recordingStatus.textContent = 'Recording...';
-                }, 2000);
-                updateDashboardData();
-            }
-        } catch (err) {
-            console.error('Error processing voice input:', err);
-        }
-    }
-}
+// Initialize Theme Manager
+document.addEventListener('DOMContentLoaded', () => {
+    const themeManager = new ThemeManager();
+});
 
 // Transaction Management
 function editTransaction(transactionId) {
@@ -470,12 +333,27 @@ async function deleteTransaction(transactionId) {
                 }
             });
             if (response.ok) {
-                updateDashboardData();
+                location.reload();
             }
         } catch (err) {
             console.error('Error deleting transaction:', err);
         }
     }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
 }
 
 document.getElementById('editTransactionForm').addEventListener('submit', async (e) => {
@@ -492,44 +370,99 @@ document.getElementById('editTransactionForm').addEventListener('submit', async 
         });
         if (response.ok) {
             closeModal();
-            updateDashboardData();
+            location.reload();
         }
     } catch (err) {
         console.error('Error updating transaction:', err);
     }
 });
 
-// Helper Functions
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
+// Transaction Management
+function addTransaction(type) {
+    const modal = document.getElementById('addTransactionModal');
+    const form = document.getElementById('addTransactionForm');
+    const titleElement = document.getElementById('transactionModalTitle');
+    const typeInput = document.getElementById('newTransactionType');
+    
+    // Set the transaction type and title
+    typeInput.value = type;
+    titleElement.textContent = `Add ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+    
+    // Reset form
+    form.reset();
+    
+    // Show modal
+    modal.classList.add('active');
 }
 
-async function updateDashboardData() {
+// Handle form submission for new transactions
+document.getElementById('addTransactionForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
     try {
-        const response = await fetch('/tracker/get_dashboard_data/');
-        const data = await response.json();
-        // Update your dashboard elements with the new data
-        location.reload(); // For now, just reload the page
+        const response = await fetch('/tracker/add_transaction/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            closeModal('addTransactionModal');
+            location.reload();
+        } else {
+            const errorData = await response.json();
+            alert(errorData.message || 'Error adding transaction');
+        }
     } catch (err) {
-        console.error('Error updating dashboard:', err);
+        console.error('Error adding transaction:', err);
+        alert('Error adding transaction. Please try again.');
+    }
+});
+
+// Voice recording functionality
+let isRecording = false;
+const recordBtn = document.getElementById('recordBtn');
+
+recordBtn.addEventListener('click', () => {
+    if (!isRecording) {
+        startRecording();
+    } else {
+        stopRecording();
+    }
+});
+
+function startRecording() {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                isRecording = true;
+                recordBtn.classList.add('recording');
+                // Add recording logic here
+                document.getElementById('recordingUI').classList.add('active');
+            })
+            .catch(err => {
+                console.error('Error accessing microphone:', err);
+                alert('Could not access microphone. Please check your permissions.');
+            });
+    } else {
+        alert('Voice recording is not supported in your browser.');
     }
 }
 
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    const themeManager = new ThemeManager();
-    const voiceRecorder = new VoiceRecorder();
-});
+function stopRecording() {
+    isRecording = false;
+    recordBtn.classList.remove('recording');
+    document.getElementById('recordingUI').classList.remove('active');
+    // Add stop recording logic here
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.remove('active');
+}
 </script>
 {% endblock %}

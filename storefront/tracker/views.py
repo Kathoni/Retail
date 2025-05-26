@@ -14,64 +14,47 @@ import pickle
 import os
 from .models import AIInsight, Business, BusinessMetrics, ProfitPrediction, Transaction, VoiceInput
 from django.contrib.auth import login
-from .forms import BusinessForm, RegisterForm
+from .forms import BusinessForm, RegisterForm, TransactionForm
 from django.views.decorators.http import require_http_methods
+from decimal import Decimal
+import base64
 
 @login_required
 def dashboard(request):
-    try:
-        business = Business.objects.get(owner=request.user)
-    except Business.DoesNotExist:
-        return redirect('tracker:create_business')  # Redirect to business creation if none
-
+    business = get_object_or_404(Business, owner=request.user)
     today = timezone.now().date()
-    yesterday = today - timedelta(days=1)
-
+    
     # Get today's metrics
-    try:
-        today_metrics = BusinessMetrics.objects.get(business=business, date=today)
-    except BusinessMetrics.DoesNotExist:
-        today_metrics = calculate_daily_metrics(business, today)
-
-    # Get yesterday's metrics for trend calculation
-    try:
-        yesterday_metrics = BusinessMetrics.objects.get(business=business, date=yesterday)
-        # Calculate trends
-        today_metrics.revenue_trend = ((today_metrics.total_revenue - yesterday_metrics.total_revenue) / 
-                                     yesterday_metrics.total_revenue * 100) if yesterday_metrics.total_revenue else 0
-        today_metrics.expense_trend = ((today_metrics.total_expenses - yesterday_metrics.total_expenses) / 
-                                     yesterday_metrics.total_expenses * 100) if yesterday_metrics.total_expenses else 0
-    except BusinessMetrics.DoesNotExist:
-        today_metrics.revenue_trend = 0
-        today_metrics.expense_trend = 0
-
+    metrics, created = BusinessMetrics.objects.get_or_create(
+        business=business,
+        date=today,
+        defaults={
+            'total_revenue': Decimal('0.00'),
+            'total_expenses': Decimal('0.00'),
+            'total_profit': Decimal('0.00'),
+            'profit_margin': Decimal('0.00'),
+        }
+    )
+    
     # Get recent transactions
-    recent_transactions = Transaction.objects.filter(
-        business=business,
-        timestamp__date=today
-    ).order_by('-timestamp')[:10]
-
-    # Get active AI insights
-    ai_insights = AIInsight.objects.filter(
-        business=business,
-        is_active=True
-    ).order_by('-severity', '-created_at')[:5]
-
-    # Get profit prediction for next 7 days
+    recent_transactions = Transaction.objects.filter(business=business).order_by('-timestamp')[:10]
+    
+    # Get AI insights
+    ai_insights = AIInsight.objects.filter(business=business, is_active=True).order_by('-severity', '-created_at')[:5]
+    
+    # Get predictions
     predictions = ProfitPrediction.objects.filter(
         business=business,
-        prediction_date__gte=today,
-        prediction_date__lte=today + timedelta(days=7)
-    ).order_by('prediction_date')
-
+        prediction_date__gte=today
+    ).order_by('prediction_date')[:7]
+    
     context = {
-        'business': business,
-        'today_metrics': today_metrics,
+        'today_metrics': metrics,
         'recent_transactions': recent_transactions,
         'ai_insights': ai_insights,
         'predictions': predictions,
     }
-
+    
     return render(request, 'dashboard.html', context)
 
 def calculate_daily_metrics(business, date):
@@ -168,38 +151,19 @@ def calculate_risk_score(business, date):
     
     return 5.0
 
-@csrf_exempt
-def add_transaction_api(request):
-    """API endpoint for adding transactions"""
+@login_required
+def add_transaction(request):
     if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            business = get_object_or_404(Business, owner=request.user)
-            
-            transaction = Transaction.objects.create(
-                business=business,
-                transaction_type=data['type'],
-                amount=data['amount'],
-                description=data['description'],
-                input_method=data.get('input_method', 'manual'),
-                quantity=data.get('quantity'),
-                supplier=data.get('supplier', ''),
-                customer_type=data.get('customer_type', ''),
-                location=data.get('location', ''),
-            )
-            
-            # Trigger AI analysis
-            generate_ai_insights(business)
-            
-            return JsonResponse({
-                'success': True,
-                'transaction_id': transaction.id,
-                'ai_insight': get_transaction_insight(transaction)
-            })
-            
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)})
-    
+        data = json.loads(request.body)
+        transaction = Transaction.objects.create(
+            business=request.user.business,
+            transaction_type=data.get('transaction_type'),
+            amount=Decimal(data.get('amount', '0.00')),
+            description=data.get('description', '')
+        )
+        
+        update_business_metrics(transaction.business, transaction)
+        return JsonResponse({'success': True})
     return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
 def get_transaction_insight(transaction):
@@ -452,17 +416,17 @@ def register(request):
         form = RegisterForm(request.POST)
         if form.is_valid():
             user = form.save()
-            login(request, user)  # log in user immediately after registration
-            return redirect('tracker:dashboard')  # redirect to your dashboard or homepage
+            login(request, user)
+            return redirect('tracker:create_business')
     else:
         form = RegisterForm()
-    return render(request, 'register.html', {'form': form})
+    return render(request, 'registration/register.html', {'form': form})
 
 @login_required
 def create_business(request):
     if hasattr(request.user, 'business'):
-        return redirect('tracker:dashboard')  # User already has a business
-
+        return redirect('tracker:dashboard')
+        
     if request.method == 'POST':
         form = BusinessForm(request.POST)
         if form.is_valid():
@@ -472,115 +436,118 @@ def create_business(request):
             return redirect('tracker:dashboard')
     else:
         form = BusinessForm()
+    
     return render(request, 'create_business.html', {'form': form})
 
 @login_required
 def get_dashboard_data(request):
-    """API endpoint for getting real-time dashboard data"""
-    try:
-        business = Business.objects.get(owner=request.user)
-    except Business.DoesNotExist:
-        return JsonResponse({'error': 'No business found'}, status=404)
-
+    business = request.user.business
     today = timezone.now().date()
-    yesterday = today - timedelta(days=1)
-
-    # Get today's metrics
-    try:
-        today_metrics = BusinessMetrics.objects.get(business=business, date=today)
-    except BusinessMetrics.DoesNotExist:
-        today_metrics = calculate_daily_metrics(business, today)
-
-    # Get yesterday's metrics for trend calculation
-    try:
-        yesterday_metrics = BusinessMetrics.objects.get(business=business, date=yesterday)
-        revenue_trend = ((today_metrics.total_revenue - yesterday_metrics.total_revenue) / 
-                        yesterday_metrics.total_revenue * 100) if yesterday_metrics.total_revenue else 0
-        expense_trend = ((today_metrics.total_expenses - yesterday_metrics.total_expenses) / 
-                        yesterday_metrics.total_expenses * 100) if yesterday_metrics.total_expenses else 0
-    except BusinessMetrics.DoesNotExist:
-        revenue_trend = 0
-        expense_trend = 0
-
+    
+    # Get updated metrics
+    metrics = BusinessMetrics.objects.get(business=business, date=today)
+    
     # Get recent transactions
-    recent_transactions = Transaction.objects.filter(
-        business=business,
-        timestamp__date=today
-    ).order_by('-timestamp')[:10]
-
-    # Get active AI insights
-    ai_insights = AIInsight.objects.filter(
-        business=business,
-        is_active=True
-    ).order_by('-severity', '-created_at')[:5]
-
-    # Get profit prediction for next 7 days
+    transactions = Transaction.objects.filter(business=business).order_by('-timestamp')[:10]
+    
+    # Format transaction data
+    transaction_data = []
+    for t in transactions:
+        transaction_data.append({
+            'id': t.id,
+            'timestamp': t.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            'description': t.description,
+            'transaction_type': t.transaction_type,
+            'amount': float(t.amount),
+            'ai_insight': t.ai_insight or ''
+        })
+    
+    # Get AI insights
+    insights = AIInsight.objects.filter(business=business, is_active=True).order_by('-severity', '-created_at')[:5]
+    insight_data = []
+    for i in insights:
+        insight_data.append({
+            'title': i.title,
+            'description': i.description,
+            'severity': i.severity
+        })
+    
+    # Get predictions
     predictions = ProfitPrediction.objects.filter(
         business=business,
-        prediction_date__gte=today,
-        prediction_date__lte=today + timedelta(days=7)
-    ).order_by('prediction_date')
-
-    # Prepare the response data
-    response_data = {
-        'today_metrics': {
-            'total_revenue': float(today_metrics.total_revenue),
-            'total_expenses': float(today_metrics.total_expenses),
-            'total_profit': float(today_metrics.total_profit),
-            'profit_margin': float(today_metrics.profit_margin),
-            'risk_score': float(today_metrics.risk_score),
-            'revenue_trend': revenue_trend,
-            'expense_trend': expense_trend,
-        },
-        'recent_transactions': [{
-            'timestamp': transaction.timestamp,
-            'description': transaction.description,
-            'transaction_type': transaction.transaction_type,
-            'amount': float(transaction.amount),
-            'ai_insight': get_transaction_insight(transaction)
-        } for transaction in recent_transactions],
-        'ai_insights': [{
-            'severity': insight.severity,
-            'title': insight.title,
-            'description': insight.description
-        } for insight in ai_insights],
-        'predictions': [{
-            'prediction_date': prediction.prediction_date,
-            'predicted_profit': float(prediction.predicted_profit),
-            'revenue_low': float(prediction.revenue_low),
-            'revenue_high': float(prediction.revenue_high),
-            'model_accuracy': float(prediction.model_accuracy)
-        } for prediction in predictions]
-    }
-
-    return JsonResponse(response_data)
-
-@csrf_exempt
-@login_required
-def process_voice(request):
-    """Process uploaded voice recording"""
-    if request.method == 'POST' and request.FILES.get('audio'):
-        try:
-            business = get_object_or_404(Business, owner=request.user)
-            audio_file = request.FILES['audio']
-            
-            # Create voice input record
-            voice_input = VoiceInput.objects.create(
-                business=business,
-                audio_file=audio_file,
-                transcribed_text='',
-                processed=False
-            )
-            
-            # Process the audio file (you'll need to implement this based on your needs)
-            # This could use various speech-to-text services like Google Cloud Speech-to-Text,
-            # Azure Speech Services, or other solutions
-            
-            return JsonResponse({'success': True, 'voice_input_id': voice_input.id})
-            
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)})
+        prediction_date__gte=today
+    ).order_by('prediction_date')[:7]
+    prediction_data = []
+    for p in predictions:
+        prediction_data.append({
+            'prediction_date': p.prediction_date.strftime('%Y-%m-%d'),
+            'predicted_profit': float(p.predicted_profit),
+            'revenue_low': float(p.revenue_low),
+            'revenue_high': float(p.revenue_high),
+            'model_accuracy': float(p.model_accuracy)
+        })
     
+    return JsonResponse({
+        'today_metrics': {
+            'total_revenue': float(metrics.total_revenue),
+            'total_expenses': float(metrics.total_expenses),
+            'total_profit': float(metrics.total_profit),
+            'profit_margin': float(metrics.profit_margin),
+            'risk_score': float(metrics.risk_score)
+        },
+        'recent_transactions': transaction_data,
+        'ai_insights': insight_data,
+        'predictions': prediction_data
+    })
+
+@login_required
+def update_transaction(request, transaction_id):
+    if request.method == 'POST':
+        transaction = get_object_or_404(Transaction, id=transaction_id, business=request.user.business)
+        data = json.loads(request.body)
+        
+        transaction.transaction_type = data.get('transaction_type', transaction.transaction_type)
+        transaction.amount = Decimal(data.get('amount', transaction.amount))
+        transaction.description = data.get('description', transaction.description)
+        transaction.save()
+        
+        return JsonResponse({'success': True})
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+@login_required
+def delete_transaction(request, transaction_id):
+    if request.method == 'POST':
+        transaction = get_object_or_404(Transaction, id=transaction_id, business=request.user.business)
+        transaction.delete()
+        return JsonResponse({'success': True})
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+@login_required
+@csrf_exempt
+def process_voice(request):
+    if request.method == 'POST' and request.FILES.get('audio'):
+        business = request.user.business
+        audio_file = request.FILES['audio']
+        
+        voice_input = VoiceInput.objects.create(
+            business=business,
+            audio_file=audio_file
+        )
+        
+        transaction = Transaction.objects.create(
+            business=business,
+            transaction_type='sale',
+            amount=Decimal('0.00'),
+            description='Voice recorded transaction',
+            input_method='voice'
+        )
+        
+        voice_input.created_transaction = transaction
+        voice_input.processed = True
+        voice_input.save()
+        
+        update_business_metrics(business, transaction)
+        return JsonResponse({'success': True})
     return JsonResponse({'success': False, 'error': 'Invalid request'})
 
 @csrf_exempt
@@ -678,28 +645,25 @@ def extract_description(text):
     
     return ' '.join(description_words).capitalize() if description_words else None
 
-@require_http_methods(["POST"])
-def update_transaction(request):
-    try:
-        data = json.loads(request.body)
-        transaction_id = data.get('transaction_id')
-        transaction = get_object_or_404(Transaction, id=transaction_id)
-        
-        # Update transaction fields
-        transaction.description = data.get('description', transaction.description)
-        transaction.amount = data.get('amount', transaction.amount)
-        transaction.transaction_type = data.get('transaction_type', transaction.transaction_type)
-        
-        transaction.save()
-        return JsonResponse({'success': True})
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+def update_business_metrics(business, transaction):
+    today = timezone.now().date()
+    metrics, created = BusinessMetrics.objects.get_or_create(
+        business=business,
+        date=today
+    )
+    
+    if transaction.transaction_type == 'sale':
+        metrics.total_revenue += transaction.amount
+    elif transaction.transaction_type in ['expense', 'loss']:
+        metrics.total_expenses += transaction.amount
+    
+    metrics.total_profit = metrics.total_revenue - metrics.total_expenses
+    if metrics.total_revenue > 0:
+        metrics.profit_margin = (metrics.total_profit / metrics.total_revenue) * 100
+    
+    metrics.total_transactions += 1
+    metrics.save()
 
-@require_http_methods(["POST"])
-def delete_transaction(request, transaction_id):
-    try:
-        transaction = get_object_or_404(Transaction, id=transaction_id)
-        transaction.delete()
-        return JsonResponse({'success': True})
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+def generate_ai_insights(transaction):
+    # Implement your AI insight generation logic here
+    pass

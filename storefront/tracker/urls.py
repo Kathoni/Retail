@@ -19,21 +19,19 @@ from django.urls import path
 from . import views
 from django.contrib.auth import views as auth_views
 
-app_name = 'tracker'  # <<<<< ADD THIS
-
+app_name = 'tracker'
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('', views.dashboard, name='dashboard'),
     path('dashboard/', views.dashboard, name='dashboard'),
-    path('create_business/', views.create_business, name='create_business'),
-    path('accounts/login/', auth_views.LoginView.as_view(), name='login'),
-    path('login/', auth_views.LoginView.as_view()),
-    path('register/', views.register, name='register'),
-    path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
-    path('add_transaction_api/', views.add_transaction_api, name='add_transaction_api'),
-    path('get_dashboard_data/', views.get_dashboard_data, name='get_dashboard_data'),
-    path('process-voice/', views.process_voice, name='process_voice'),
-    path('process-voice-text/', views.process_voice_text, name='process_voice_text'),
-    path('update_transaction/', views.update_transaction, name='update_transaction'),
+    path('add_transaction/', views.add_transaction, name='add_transaction'),
+    path('process_voice/', views.process_voice, name='process_voice'),
+    path('update_transaction/<int:transaction_id>/', views.update_transaction, name='update_transaction'),
     path('delete_transaction/<int:transaction_id>/', views.delete_transaction, name='delete_transaction'),
+    path('create_business/', views.create_business, name='create_business'),
+    path('accounts/login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
+    path('register/', views.register, name='register'),
+    path('logout/', auth_views.LogoutView.as_view(next_page='tracker:login'), name='logout'),
+    path('get_dashboard_data/', views.get_dashboard_data, name='get_dashboard_data'),
+    path('process-voice-text/', views.process_voice_text, name='process_voice_text'),
 ]

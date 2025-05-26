@@ -6,20 +6,31 @@ from datetime import datetime, timedelta
 import json
 
 class Business(models.Model):
-    owner = models.OneToOneField(User, on_delete=models.CASCADE)
-    name = models.CharField(max_length=200)
-    business_type = models.CharField(max_length=100, choices=[
+    BUSINESS_TYPES = [
         ('retail', 'Retail Store'),
-        ('food', 'Food Vendor'),
-        ('market', 'Market Trader'),
-        ('service', 'Service Provider'),
-    ])
-    location = models.CharField(max_length=200)
-    phone = models.CharField(max_length=20)
+        ('restaurant', 'Restaurant'),
+        ('service', 'Service Business'),
+        ('online', 'Online Store'),
+        ('other', 'Other'),
+    ]
+
+    CURRENCY_CHOICES = [
+        ('USD', 'US Dollar'),
+        ('EUR', 'Euro'),
+        ('GBP', 'British Pound'),
+        ('JPY', 'Japanese Yen'),
+    ]
+
+    owner = models.OneToOneField(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    business_type = models.CharField(max_length=20, choices=BUSINESS_TYPES)
+    description = models.TextField(blank=True)
+    currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default='USD')
     created_at = models.DateTimeField(auto_now_add=True)
-    
+    updated_at = models.DateTimeField(auto_now=True)
+
     def __str__(self):
-        return f"{self.name} - {self.owner.username}"
+        return self.name
 
 class Category(models.Model):
     name = models.CharField(max_length=100)
@@ -39,7 +50,7 @@ class Transaction(models.Model):
     TRANSACTION_TYPES = [
         ('sale', 'Sale'),
         ('expense', 'Expense'),
-        ('loss', 'Loss/Wastage'),
+        ('loss', 'Loss'),
     ]
     
     INPUT_METHODS = [
@@ -49,12 +60,13 @@ class Transaction(models.Model):
         ('api', 'API Integration'),
     ]
     
-    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='transactions', default=1)
-    transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES)
+    business = models.ForeignKey(Business, on_delete=models.CASCADE)
+    transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPES)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     description = models.TextField()
-    input_method = models.CharField(max_length=20, choices=INPUT_METHODS, default='manual')
+    input_method = models.CharField(max_length=10, default='manual')
+    ai_insight = models.TextField(blank=True, null=True)
     
     # Metadata for AI analysis
     quantity = models.FloatField(null=True, blank=True)
@@ -68,31 +80,28 @@ class Transaction(models.Model):
     day_of_week = models.IntegerField(default=0)  # 0=Monday, 6=Sunday
     hour_of_day = models.IntegerField(default=12)
     
-    timestamp = models.DateTimeField(auto_now_add=True)
+    timestamp = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         ordering = ['-timestamp']
     
     def __str__(self):
-        return f"{self.business.name} - {self.transaction_type} - ${self.amount}"
+        return f"{self.transaction_type} - {self.amount} - {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
     
-    def save(self, *args, **kwargs):
-        # Set timestamp if not already set
-        if not self.timestamp:
-            self.timestamp = timezone.now()
-        
-        # Auto-populate day and hour
-        self.day_of_week = self.timestamp.weekday()
-        self.hour_of_day = self.timestamp.hour
-        super().save(*args, **kwargs)
+    @property
+    def hour_of_day(self):
+        return self.timestamp.hour
+
+    @property
+    def day_of_week(self):
+        return self.timestamp.weekday()
 
 class AIInsight(models.Model):
-    SEVERITY_LEVELS = [
-        ('low', 'Low Priority'),
-        ('medium', 'Medium Priority'),
-        ('high', 'High Priority'),
-        ('critical', 'Critical'),
+    SEVERITY_CHOICES = [
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
     ]
     
     INSIGHT_TYPES = [
@@ -104,23 +113,20 @@ class AIInsight(models.Model):
         ('revenue', 'Revenue Opportunity'),
     ]
     
-    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='ai_insights')
-    insight_type = models.CharField(max_length=20, choices=INSIGHT_TYPES)
-    severity = models.CharField(max_length=10, choices=SEVERITY_LEVELS)
+    business = models.ForeignKey(Business, on_delete=models.CASCADE)
     title = models.CharField(max_length=200)
     description = models.TextField()
-    
-    # Financial impact
+    severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    insight_type = models.CharField(max_length=20)
     potential_savings = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     potential_revenue = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    confidence_score = models.DecimalField(max_digits=3, decimal_places=2)
     
     # Related data for context
     related_transactions = models.ManyToManyField(Transaction, blank=True)
-    confidence_score = models.FloatField(default=0.0)  # 0-1 confidence in this insight
-    
-    is_active = models.BooleanField(default=True)
     is_read = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
         ordering = ['-created_at', '-severity']
@@ -129,23 +135,14 @@ class AIInsight(models.Model):
         return f"{self.business.name} - {self.title} ({self.severity})"
 
 class ProfitPrediction(models.Model):
-    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='predictions')
+    business = models.ForeignKey(Business, on_delete=models.CASCADE)
     prediction_date = models.DateField()
+    predicted_profit = models.DecimalField(max_digits=10, decimal_places=2)
     predicted_revenue = models.DecimalField(max_digits=10, decimal_places=2)
     predicted_expenses = models.DecimalField(max_digits=10, decimal_places=2)
-    predicted_profit = models.DecimalField(max_digits=10, decimal_places=2)
-    
-    # Confidence intervals
     revenue_low = models.DecimalField(max_digits=10, decimal_places=2)
     revenue_high = models.DecimalField(max_digits=10, decimal_places=2)
-    
-    # Factors influencing prediction
-    weather_factor = models.FloatField(default=1.0)
-    seasonal_factor = models.FloatField(default=1.0)
-    event_factor = models.FloatField(default=1.0)
-    trend_factor = models.FloatField(default=1.0)
-    
-    model_accuracy = models.FloatField(default=0.0)  # Historical accuracy of this prediction
+    model_accuracy = models.DecimalField(max_digits=4, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -157,7 +154,7 @@ class ProfitPrediction(models.Model):
 
 class BusinessMetrics(models.Model):
     """Daily aggregated metrics for quick dashboard loading"""
-    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='metrics')
+    business = models.ForeignKey(Business, on_delete=models.CASCADE)
     date = models.DateField()
     
     # Daily totals
@@ -168,14 +165,14 @@ class BusinessMetrics(models.Model):
     
     # Performance metrics
     avg_transaction_value = models.DecimalField(max_digits=8, decimal_places=2, default=0)
-    profit_margin = models.FloatField(default=0.0)
+    profit_margin = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     
     # Efficiency metrics
     wastage_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    wastage_percentage = models.FloatField(default=0.0)
+    wastage_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     
     # AI Risk Score (0-10)
-    risk_score = models.FloatField(default=5.0)
+    risk_score = models.DecimalField(max_digits=4, decimal_places=2, default=5.0)
     
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -189,10 +186,12 @@ class BusinessMetrics(models.Model):
 class VoiceInput(models.Model):
     """Store voice input data for processing and improvement"""
     business = models.ForeignKey(Business, on_delete=models.CASCADE)
-    audio_file = models.FileField(upload_to='voice_inputs/', null=True, blank=True)
-    transcribed_text = models.TextField()
-    confidence = models.FloatField(default=0.0)
+    audio_file = models.FileField(upload_to='voice_inputs/')
+    transcribed_text = models.TextField(blank=True)
     processed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    language_detected = models.CharField(max_length=10, blank=True)
+    confidence_score = models.DecimalField(max_digits=3, decimal_places=2, null=True)
     
     # Extracted transaction data
     extracted_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -200,7 +199,6 @@ class VoiceInput(models.Model):
     extracted_description = models.TextField(blank=True)
     
     created_transaction = models.ForeignKey(Transaction, on_delete=models.SET_NULL, null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
         return f"{self.business.name} - Voice Input - {self.created_at.strftime('%Y-%m-%d %H:%M')}"

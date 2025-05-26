@@ -1,168 +1,107 @@
-# Retail Business Analytics Dashboard
+# Smart Trader Analytics
 
-A modern, AI-powered dashboard for retail business owners to track sales, expenses, and get real-time insights. Built with Django and modern web technologies.
+A powerful AI-driven retail business analytics dashboard that helps small businesses track profits, prevent losses, and make data-driven decisions.
 
-![Dashboard Preview](dashboard_preview.png)
+## Features
 
-## 🌟 Features
+### Core Analytics
+- Real-time revenue and expense tracking
+- Profit margin calculations
+- AI-powered risk assessment
+- Transaction management with voice input
+- Multi-language support
 
-### Real-Time Analytics
-- Live revenue, expense, and profit tracking
-- Trend analysis and comparison with previous periods
-- Interactive charts and visualizations
-- Real-time transaction updates
+### AI Capabilities
+- Automated loss prevention insights
+- 7-day profit predictions
+- Transaction pattern analysis
+- Real-time risk scoring
+- Smart transaction categorization
 
-### AI-Powered Insights
-- 🤖 Automated risk assessment
-- 📈 Sales pattern detection
-- ⚠️ Loss prevention recommendations
-- 📊 7-day profit predictions
-- 💡 Cost optimization suggestions
-
-### Multi-Language Voice Input
-- Voice commands in multiple languages:
-  - English
-  - Spanish (Español)
-  - French (Français)
-  - German (Deutsch)
-  - Chinese (中文)
-  - Japanese (日本語)
+### Voice Integration
+- Multi-language voice input support
 - Auto-language detection
 - Real-time voice visualization
+- Voice-to-transaction processing
+- Support for multiple languages (English, Spanish, French, German, Chinese, Japanese)
 
-### Professional UI
-- Clean, modern design
-- Mobile-responsive layout
-- Dark/light mode support
-- Real-time updates
-- Interactive notifications
+### User Interface
+- Modern, responsive design
+- Dark/light theme with system preference detection
+- Real-time data updates
+- Interactive transaction management
+- Professional color scheme
+- Quick action buttons
+- Smooth animations and transitions
 
-## 🚀 Getting Started
+## Getting Started
 
-### Prerequisites
-- Python 3.8+
-- Django 4.2+
-- Node.js 14+
-- PostgreSQL (recommended) or SQLite
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Run migrations:
+   ```bash
+   python manage.py migrate
+   ```
+4. Start the development server:
+   ```bash
+   python manage.py runserver
+   ```
 
-### Installation
+## Usage
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/retail-dashboard.git
-cd retail-dashboard
-```
+1. Register an account
+2. Create your business profile
+3. Start adding transactions using:
+   - Quick action buttons
+   - Voice recording
+   - Manual entry form
 
-2. Create and activate virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+## Transaction Management
 
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+- Add transactions through quick action buttons
+- Edit existing transactions with the edit button
+- Delete transactions with the delete button
+- Use voice recording for hands-free input
+- View AI insights for each transaction
 
-4. Set up environment variables:
-```bash
-cp .env.example .env
-# Edit .env with your database and API credentials
-```
+## Theme Customization
 
-5. Run migrations:
-```bash
-python manage.py migrate
-```
+The dashboard supports both light and dark themes:
+- Click the theme toggle button in the top-right corner
+- Automatically detects system theme preference
+- Persists theme choice across sessions
 
-6. Create superuser:
-```bash
-python manage.py createsuperuser
-```
+## Voice Recording
 
-7. Start development server:
-```bash
-python manage.py runserver
-```
+1. Click the microphone button
+2. Speak your transaction details
+3. The system will automatically:
+   - Detect the language
+   - Process the audio
+   - Extract transaction details
+   - Update the dashboard
 
-Visit `http://localhost:8000` to access the dashboard.
+## Dependencies
 
-## 🎯 Usage
+- Django
+- scikit-learn
+- numpy
+- Font Awesome
+- Web Speech API
 
-### Voice Commands
-Record transactions using natural voice commands in any supported language:
+## License
 
-- English: "add sale 100 dollars for office supplies"
-- Spanish: "nueva venta 50 dólares para café"
-- French: "nouvelle vente 50 euros pour café"
-- German: "neuer verkauf 50 euro für kaffee"
+MIT License - See LICENSE file for details
 
-### Dashboard Navigation
-1. **Quick Actions**: Add sales, expenses, or losses
-2. **Metrics Overview**: View today's performance
-3. **AI Insights**: Check automated recommendations
-4. **Recent Transactions**: Monitor latest activity
-5. **Predictions**: View 7-day forecasts
+## Recent Updates
 
-## 🔒 Security Features
-
-- CSRF protection
-- User authentication
-- Secure password handling
-- API rate limiting
-- Data encryption
-- Audit logging
-
-## 📱 Mobile Support
-
-The dashboard is fully responsive and works on:
-- 📱 Smartphones
-- 📱 Tablets
-- 💻 Desktops
-- 🖥️ Large displays
-
-## 🛠️ Technology Stack
-
-- **Backend**: Django, Python
-- **Frontend**: HTML5, CSS3, JavaScript
-- **Database**: PostgreSQL/SQLite
-- **AI/ML**: scikit-learn, NumPy
-- **Voice Processing**: Web Speech API
-- **Real-time Updates**: AJAX, WebSocket
-- **Authentication**: Django Auth
-
-## 📊 Data Analysis
-
-The dashboard provides:
-- Daily/weekly/monthly trends
-- Profit margin analysis
-- Customer behavior patterns
-- Inventory optimization
-- Risk assessment
-- Predictive analytics
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Django community
-- scikit-learn team
-- All contributors and users
-
-## 📞 Support
-
-For support, email support@retaildashboard.com or open an issue in the repository.
-
-## 🔄 Updates
-
-Check the [CHANGELOG](CHANGELOG.md) for recent updates and changes. 
+- Fixed dark mode visibility issues
+- Improved transaction action buttons
+- Enhanced responsive design
+- Added real-time dashboard updates
+- Improved voice recording functionality
+- Fixed AI insights visibility
+- Enhanced quick actions functionality 
