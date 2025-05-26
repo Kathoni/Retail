@@ -3,60 +3,322 @@
 {% block title %}Register - Smart Trader Analytics{% endblock %}
 
 {% block content %}
-<div class="auth-container">
-    <h2>Create Account</h2>
-    <form method="post" class="auth-form">
-        {% csrf_token %}
-        <div class="form-group">
-            <label for="id_username">Username</label>
-            {{ form.username }}
-            {% if form.username.errors %}
-                <div class="alert alert-danger">
-                    {{ form.username.errors }}
-                </div>
-            {% endif %}
+<div class="register-container">
+    <div class="register-card">
+        <div class="register-header">
+            <i class="fas fa-user-plus header-icon"></i>
+            <h1>Create Account</h1>
+            <p>Join Smart Trader Analytics to start tracking your business growth</p>
         </div>
-        <div class="form-group">
-            <label for="id_email">Email</label>
-            {{ form.email }}
-            {% if form.email.errors %}
-                <div class="alert alert-danger">
-                    {{ form.email.errors }}
-                </div>
-            {% endif %}
-        </div>
-        <div class="form-group">
-            <label for="id_password1">Password</label>
-            {{ form.password1 }}
-            {% if form.password1.errors %}
-                <div class="alert alert-danger">
-                    {{ form.password1.errors }}
-                </div>
-            {% endif %}
-            {% if form.password1.help_text %}
-                <div class="help-text">
-                    {{ form.password1.help_text|safe }}
-                </div>
-            {% endif %}
-        </div>
-        <div class="form-group">
-            <label for="id_password2">Confirm Password</label>
-            {{ form.password2 }}
-            {% if form.password2.errors %}
-                <div class="alert alert-danger">
-                    {{ form.password2.errors }}
-                </div>
-            {% endif %}
-        </div>
-        {% if form.non_field_errors %}
-            <div class="alert alert-danger">
-                {{ form.non_field_errors }}
+
+        <form method="post" class="register-form">
+            {% csrf_token %}
+            
+            {% if form.errors %}
+            <div class="error-message">
+                <i class="fas fa-exclamation-circle"></i>
+                Please correct the errors below.
             </div>
-        {% endif %}
-        <button type="submit" class="auth-btn">Register</button>
-    </form>
-    <div class="auth-links">
-        <p>Already have an account? <a href="{% url 'tracker:login' %}">Login here</a></p>
+            {% endif %}
+
+            <div class="form-group">
+                <label for="{{ form.username.id_for_label }}">
+                    <i class="fas fa-user"></i>
+                    Username
+                </label>
+                {{ form.username }}
+                {% if form.username.errors %}
+                <div class="field-error">{{ form.username.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.email.id_for_label }}">
+                    <i class="fas fa-envelope"></i>
+                    Email Address
+                </label>
+                {{ form.email }}
+                {% if form.email.errors %}
+                <div class="field-error">{{ form.email.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.password1.id_for_label }}">
+                    <i class="fas fa-lock"></i>
+                    Password
+                </label>
+                {{ form.password1 }}
+                {% if form.password1.errors %}
+                <div class="field-error">{{ form.password1.errors.0 }}</div>
+                {% endif %}
+                <div class="password-requirements">
+                    <ul>
+                        <li><i class="fas fa-check-circle"></i> At least 8 characters</li>
+                        <li><i class="fas fa-check-circle"></i> Contains letters and numbers</li>
+                        <li><i class="fas fa-check-circle"></i> Include special characters</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.password2.id_for_label }}">
+                    <i class="fas fa-lock"></i>
+                    Confirm Password
+                </label>
+                {{ form.password2 }}
+                {% if form.password2.errors %}
+                <div class="field-error">{{ form.password2.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <button type="submit" class="register-btn">
+                <i class="fas fa-user-plus"></i>
+                Create Account
+            </button>
+
+            <div class="login-link-container">
+                Already have an account? 
+                <a href="{% url 'tracker:login' %}" class="login-link">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Log In
+                </a>
+            </div>
+        </form>
     </div>
 </div>
+
+<style>
+    .register-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        padding: 20px;
+        background: linear-gradient(135deg, var(--primary-color), var(--info-color));
+    }
+
+    .register-card {
+        background: var(--card-bg);
+        padding: 40px;
+        border-radius: 15px;
+        box-shadow: 0 4px 25px rgba(0, 0, 0, 0.1);
+        max-width: 500px;
+        width: 100%;
+    }
+
+    .register-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    .header-icon {
+        font-size: 3rem;
+        color: var(--primary-color);
+        margin-bottom: 15px;
+    }
+
+    .register-header h1 {
+        color: var(--text-color);
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+
+    .register-header p {
+        color: var(--text-color);
+        opacity: 0.8;
+    }
+
+    .register-form {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .form-group label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-color);
+        font-weight: 500;
+    }
+
+    .form-group label i {
+        color: var(--primary-color);
+    }
+
+    .form-group input {
+        padding: 12px;
+        border: 2px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 1rem;
+        background: var(--bg-color);
+        color: var(--text-color);
+        transition: all 0.3s ease;
+    }
+
+    .form-group input:focus {
+        border-color: var(--primary-color);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.1);
+    }
+
+    .error-message {
+        background: rgba(var(--danger-color-rgb), 0.1);
+        color: var(--danger-color);
+        padding: 12px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .field-error {
+        color: var(--danger-color);
+        font-size: 0.9rem;
+        margin-top: 4px;
+    }
+
+    .password-requirements {
+        margin-top: 8px;
+        font-size: 0.9rem;
+    }
+
+    .password-requirements ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .password-requirements li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-color);
+        opacity: 0.8;
+    }
+
+    .password-requirements i {
+        color: var(--success-color);
+    }
+
+    .register-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 14px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 10px;
+    }
+
+    .register-btn:hover {
+        background: var(--info-color);
+        transform: translateY(-2px);
+    }
+
+    .login-link-container {
+        text-align: center;
+        margin-top: 20px;
+        color: var(--text-color);
+    }
+
+    .login-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--primary-color);
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.3s ease;
+    }
+
+    .login-link:hover {
+        color: var(--info-color);
+    }
+
+    @media screen and (max-width: 480px) {
+        .register-card {
+            padding: 30px 20px;
+        }
+
+        .header-icon {
+            font-size: 2.5rem;
+        }
+
+        .register-header h1 {
+            font-size: 1.8rem;
+        }
+
+        .form-group input {
+            padding: 10px;
+        }
+
+        .register-btn {
+            padding: 12px;
+        }
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add input validation classes
+    const inputs = document.querySelectorAll('.register-form input');
+    inputs.forEach(input => {
+        input.classList.add('form-control');
+        
+        // Add placeholder text
+        switch(input.name) {
+            case 'username':
+                input.placeholder = 'Choose a username';
+                break;
+            case 'email':
+                input.placeholder = 'Enter your email';
+                break;
+            case 'password1':
+                input.placeholder = 'Create a strong password';
+                break;
+            case 'password2':
+                input.placeholder = 'Confirm your password';
+                break;
+        }
+    });
+
+    // Password strength validation
+    const password1 = document.querySelector('input[name="password1"]');
+    const requirements = document.querySelectorAll('.password-requirements li i');
+    
+    password1.addEventListener('input', function() {
+        const value = this.value;
+        
+        // Length check
+        requirements[0].className = value.length >= 8 ? 
+            'fas fa-check-circle' : 'fas fa-times-circle';
+        
+        // Letters and numbers check
+        requirements[1].className = /[a-zA-Z]/.test(value) && /[0-9]/.test(value) ?
+            'fas fa-check-circle' : 'fas fa-times-circle';
+        
+        // Special characters check
+        requirements[2].className = /[!@#$%^&*]/.test(value) ?
+            'fas fa-check-circle' : 'fas fa-times-circle';
+    });
+});
+</script>
 {% endblock %} 

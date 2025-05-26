@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+
+{% block title %}Logged Out - Smart Trader Analytics{% endblock %}
+
+{% block content %}
+<div class="logout-container">
+    <div class="logout-card">
+        <i class="fas fa-check-circle success-icon"></i>
+        <h1>Successfully Logged Out</h1>
+        <p>Thank you for using Smart Trader Analytics. You have been safely logged out.</p>
+        <a href="{% url 'tracker:login' %}" class="login-link">
+            <i class="fas fa-sign-in-alt"></i>
+            Log In Again
+        </a>
+    </div>
+</div>
+
+<style>
+    .logout-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 80vh;
+        padding: 20px;
+    }
+
+    .logout-card {
+        background: var(--card-bg);
+        padding: 40px;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px var(--shadow-color);
+        text-align: center;
+        max-width: 400px;
+        width: 100%;
+    }
+
+    .success-icon {
+        font-size: 4rem;
+        color: var(--success-color);
+        margin-bottom: 20px;
+    }
+
+    .logout-card h1 {
+        color: var(--text-color);
+        font-size: 1.8rem;
+        margin-bottom: 15px;
+    }
+
+    .logout-card p {
+        color: var(--text-color);
+        opacity: 0.8;
+        margin-bottom: 25px;
+    }
+
+    .login-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 25px;
+        background: var(--primary-color);
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .login-link:hover {
+        background: var(--info-color);
+        transform: translateY(-2px);
+    }
+
+    @media screen and (max-width: 480px) {
+        .logout-card {
+            padding: 30px 20px;
+        }
+
+        .success-icon {
+            font-size: 3rem;
+        }
+
+        .logout-card h1 {
+            font-size: 1.5rem;
+        }
+    }
+</style>
+{% endblock %} 

@@ -14,7 +14,7 @@
 
 .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 20px;
     margin-bottom: 30px;
 }
@@ -50,7 +50,7 @@
 }
 
 .metric-value {
-    font-size: 2rem;
+    font-size: clamp(1.5rem, 4vw, 2rem);
     font-weight: 600;
     margin: 10px 0;
 }
@@ -73,34 +73,31 @@
 .quick-actions {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 15px;
 }
 
 .action-buttons {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 15px;
-    justify-content: center;
 }
 
 .action-btn {
-    flex: 1;
-    min-width: 200px;
-    max-width: 300px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 15px 25px;
+    width: 100%;
+    padding: 12px 20px;
     border-radius: 10px;
     border: none;
     background: var(--primary-color);
     color: white;
-    font-size: 1rem;
+    font-size: clamp(0.9rem, 2vw, 1rem);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.3s ease;
-    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    white-space: nowrap;
 }
 
 .action-btn i {
@@ -138,14 +135,17 @@
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    margin-top: 20px;
+    margin-top: 15px;
+    overflow-x: auto;
+    display: block;
 }
 
 .transactions-table th,
 .transactions-table td {
-    padding: 15px;
+    padding: 12px;
     text-align: left;
     border-bottom: 1px solid var(--border-color);
+    min-width: 100px;
 }
 
 .transactions-table th {
@@ -174,12 +174,13 @@
     left: 50%;
     transform: translateX(-50%);
     background: var(--card-bg);
-    padding: 20px;
+    padding: 15px;
     border-radius: 15px;
     box-shadow: 0 4px 20px var(--shadow-color);
     display: none;
     z-index: 1000;
-    width: 300px;
+    width: 90%;
+    max-width: 300px;
     text-align: center;
 }
 
@@ -219,7 +220,7 @@
 .insight-item {
     background: var(--hover-color);
     border-radius: 10px;
-    padding: 20px;
+    padding: 15px;
     margin-bottom: 15px;
 }
 
@@ -278,9 +279,11 @@
 .card {
     background: var(--card-bg);
     border-radius: 15px;
-    padding: 25px;
+    padding: 20px;
     margin-bottom: 20px;
     box-shadow: 0 4px 15px var(--shadow-color);
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .profit-card {
@@ -312,9 +315,11 @@
 .modal-content {
     background: var(--card-bg);
     border-radius: 15px;
-    padding: 25px;
+    padding: 20px;
     width: 90%;
     max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
     box-shadow: 0 4px 20px var(--shadow-color);
 }
 
@@ -409,4 +414,274 @@
 
 .btn-danger:hover {
     opacity: 0.9;
+}
+
+/* Base responsive container */
+.container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 15px;
+    box-sizing: border-box;
+}
+
+/* Metric Values */
+.metric-label {
+    font-size: clamp(0.9rem, 2vw, 1.1rem);
+    color: var(--text-color);
+    opacity: 0.8;
+}
+
+/* Table Responsiveness */
+@media screen and (max-width: 768px) {
+    .transactions-table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .transactions-table th,
+    .transactions-table td {
+        white-space: nowrap;
+        font-size: 0.9rem;
+    }
+
+    .action-buttons {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Modal Responsiveness */
+@media screen and (max-width: 480px) {
+    .modal-content {
+        padding: 15px;
+        margin: 10px;
+    }
+
+    .modal-form .form-group {
+        margin-bottom: 15px;
+    }
+
+    .modal-actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .modal-actions button {
+        width: 100%;
+    }
+}
+
+/* Theme Switcher Responsiveness */
+@media screen and (max-width: 480px) {
+    .theme-switcher {
+        top: 10px;
+        right: 10px;
+    }
+
+    .theme-btn {
+        padding: 8px 12px;
+        font-size: 0.9rem;
+    }
+}
+
+/* AI Insights Responsiveness */
+@media screen and (max-width: 480px) {
+    .insight-item {
+        padding: 12px;
+    }
+
+    .insight-item h4 {
+        font-size: 1rem;
+    }
+
+    .insight-item p {
+        font-size: 0.9rem;
+    }
+}
+
+/* Recording UI Responsiveness */
+@media screen and (max-width: 480px) {
+    .recording-ui {
+        width: 95%;
+        padding: 10px;
+        bottom: 20px;
+    }
+}
+
+/* General Typography Responsiveness */
+h1 {
+    font-size: clamp(1.5rem, 5vw, 2.5rem);
+}
+
+h2 {
+    font-size: clamp(1.3rem, 4vw, 2rem);
+}
+
+h3 {
+    font-size: clamp(1.1rem, 3vw, 1.5rem);
+}
+
+p {
+    font-size: clamp(0.9rem, 2vw, 1rem);
+}
+
+/* Ensure proper spacing on mobile */
+@media screen and (max-width: 480px) {
+    .card {
+        padding: 15px;
+    }
+
+    .dashboard-grid {
+        gap: 15px;
+    }
+
+    .action-btn {
+        padding: 10px 15px;
+    }
+}
+
+/* Handle extremely small screens */
+@media screen and (max-width: 320px) {
+    .container {
+        padding: 10px;
+    }
+
+    .card {
+        padding: 12px;
+    }
+
+    .metric-value {
+        font-size: 1.2rem;
+    }
+
+    .action-btn {
+        font-size: 0.85rem;
+        padding: 8px 12px;
+    }
+}
+
+/* AI Analysis Section */
+.ai-analysis {
+    padding: 20px 0;
+}
+
+.analysis-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.analysis-item {
+    text-align: center;
+    padding: 20px;
+    background: var(--hover-color);
+    border-radius: 15px;
+    transition: transform 0.3s ease;
+}
+
+.analysis-item:hover {
+    transform: translateY(-5px);
+}
+
+.analysis-item h4 {
+    margin-bottom: 15px;
+    color: var(--text-color);
+}
+
+.score-circle {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color), var(--info-color));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 15px;
+}
+
+.score-circle .score {
+    color: white;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.trend-indicator {
+    font-size: 2rem;
+    color: var(--success-color);
+    margin-bottom: 15px;
+}
+
+.potential-savings {
+    font-size: 2rem;
+    color: var(--primary-color);
+    margin-bottom: 15px;
+}
+
+.score-description,
+.trend-description,
+.savings-description {
+    color: var(--text-color);
+    opacity: 0.8;
+    font-size: 0.9rem;
+}
+
+/* Camera Modal Styles */
+.camera-container {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+#camera {
+    width: 100%;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.camera-controls {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.scanning-status {
+    text-align: center;
+    color: var(--text-color);
+    padding: 10px;
+    border-radius: 5px;
+    background: var(--hover-color);
+}
+
+.scanning-status i {
+    margin-right: 8px;
+}
+
+/* Responsive Styles for AI Analysis */
+@media screen and (max-width: 768px) {
+    .analysis-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .score-circle {
+        width: 100px;
+        height: 100px;
+    }
+
+    .score-circle .score {
+        font-size: 1.2rem;
+    }
+}
+
+/* Animation for Recording Status */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.recording .fa-microphone {
+    color: var(--danger-color);
+    animation: pulse 1.5s infinite;
 } 

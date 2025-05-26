@@ -4,6 +4,91 @@
 {% load static %}
 {% block css %}
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+    .dashboard-header {
+        background: linear-gradient(135deg, var(--primary-color), var(--info-color));
+        color: white;
+        padding: 20px 30px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 15px var(--shadow-color);
+    }
+
+    .header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .user-info {
+        flex: 1;
+    }
+
+    .user-info h1 {
+        margin: 0;
+        font-size: 2.5rem;
+        margin-bottom: 5px;
+    }
+
+    .user-info p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 1.1rem;
+    }
+
+    .header-actions {
+        display: flex;
+        align-items: center;
+    }
+
+    .logout-form {
+        margin: 0;
+        padding: 0;
+    }
+
+    .logout-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background: rgba(255, 255, 255, 0.15);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .logout-btn:hover {
+        background: rgba(255, 255, 255, 0.25);
+        transform: translateY(-2px);
+    }
+
+    .logout-btn i {
+        font-size: 1.1rem;
+    }
+
+    @media screen and (max-width: 768px) {
+        .dashboard-header {
+            padding: 15px;
+        }
+
+        .header-content {
+            flex-direction: column;
+            text-align: center;
+            gap: 15px;
+        }
+
+        .user-info h1 {
+            font-size: 2rem;
+        }
+
+        .user-info p {
+            font-size: 1rem;
+        }
+    }
+    </style>
 {% endblock %}
 
 
@@ -18,8 +103,21 @@
 
     <!-- Dashboard Header -->
     <div class="dashboard-header">
-        <h1>Welcome, {{ request.user.username }}</h1>
-        <p>{{ request.user.business.name }} - {{ request.user.business.business_type|title }}</p>
+        <div class="header-content">
+            <div class="user-info">
+                <h1>Welcome, {{ request.user.username }}</h1>
+                <p>{{ request.user.business.name }} - {{ request.user.business.business_type|title }}</p>
+            </div>
+            <div class="header-actions">
+                <form method="post" action="{% url 'logout' %}" class="logout-form">
+                    {% csrf_token %}
+                    <button type="submit" class="logout-btn">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Logout
+                    </button>
+                </form>
+            </div>
+        </div>
     </div>
 
     <!-- Dashboard Metrics -->
@@ -114,10 +212,46 @@
                     <i class="fas fa-exclamation-circle"></i>
                     Record Loss
                 </button>
+                <button class="action-btn" onclick="startCamera()">
+                    <i class="fas fa-camera"></i>
+                    Scan Receipt
+                </button>
                 <button class="action-btn record-btn" id="recordBtn">
                     <i class="fas fa-microphone"></i>
                     Voice Record
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Analysis Section -->
+    <div class="card">
+        <h3>🤖 AI Business Analysis</h3>
+        <div class="ai-analysis">
+            <div class="analysis-grid">
+                <div class="analysis-item">
+                    <h4>Business Health Score</h4>
+                    <div class="score-circle" id="healthScore">
+                        <span class="score">{{ health_score|default:"85" }}/100</span>
+                    </div>
+                    <p class="score-description">Based on profit margins, growth, and stability</p>
+                </div>
+                <div class="analysis-item">
+                    <h4>Growth Trend</h4>
+                    <div class="trend-indicator">
+                        <i class="fas fa-chart-line"></i>
+                        <span>{{ growth_trend|default:"+15%" }}</span>
+                    </div>
+                    <p class="trend-description">Month-over-month revenue growth</p>
+                </div>
+                <div class="analysis-item">
+                    <h4>Optimization Potential</h4>
+                    <div class="potential-savings">
+                        <i class="fas fa-piggy-bank"></i>
+                        <span>${{ potential_savings|default:"1,200" }}</span>
+                    </div>
+                    <p class="savings-description">Estimated monthly savings opportunity</p>
+                </div>
             </div>
         </div>
     </div>
@@ -259,6 +393,31 @@
         </div>
         <div class="recording-language" id="detectedLanguage">Language: Auto-detect</div>
     </div>
+
+    <!-- Camera Modal -->
+    <div class="modal" id="cameraModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Scan Receipt</h3>
+                <span class="modal-close" onclick="closeModal('cameraModal')">&times;</span>
+            </div>
+            <div class="camera-container">
+                <video id="camera" autoplay playsinline></video>
+                <canvas id="photoCanvas" style="display: none;"></canvas>
+                <div class="camera-controls">
+                    <button class="btn btn-primary" onclick="takePhoto()">
+                        <i class="fas fa-camera"></i> Capture
+                    </button>
+                    <button class="btn btn-danger" onclick="closeCamera()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+                <div id="scanningStatus" class="scanning-status" style="display: none;">
+                    <i class="fas fa-spinner fa-spin"></i> Processing receipt...
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block extra_js %}
@@ -319,8 +478,20 @@ function editTransaction(transactionId) {
     modal.classList.add('active');
 }
 
-function closeModal() {
-    document.getElementById('editModal').classList.remove('active');
+function closeModal(modalId) {
+    if (modalId) {
+        document.getElementById(modalId).classList.remove('active');
+    } else {
+        // Close all modals
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.classList.remove('active');
+        });
+    }
+    
+    // Reset any active forms
+    document.querySelectorAll('.modal form').forEach(form => {
+        form.reset();
+    });
 }
 
 async function deleteTransaction(transactionId) {
@@ -392,15 +563,24 @@ function addTransaction(type) {
     form.reset();
     
     // Show modal
-    modal.classList.add('active');
+    showModal('addTransactionModal');
 }
 
-// Handle form submission for new transactions
+// Handle form submission
 document.getElementById('addTransactionForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    const data = Object.fromEntries(formData);
-    
+    const data = {
+        transaction_type: formData.get('transaction_type'),
+        description: formData.get('description'),
+        amount: parseFloat(formData.get('amount'))
+    };
+
+    if (!data.amount || isNaN(data.amount) || data.amount <= 0) {
+        alert('Please enter a valid positive amount');
+        return;
+    }
+
     try {
         const response = await fetch('/tracker/add_transaction/', {
             method: 'POST',
@@ -410,13 +590,56 @@ document.getElementById('addTransactionForm').addEventListener('submit', async (
             },
             body: JSON.stringify(data)
         });
-        
-        if (response.ok) {
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
             closeModal('addTransactionModal');
-            location.reload();
+            
+            // Update metrics immediately with the new data
+            if (result.metrics) {
+                updateMetrics(result.metrics);
+            }
+            
+            // Update transactions list
+            const tbody = document.querySelector('.transactions-table tbody');
+            const newRow = `
+                <tr data-transaction-id="${result.transaction.id}">
+                    <td>${new Date().toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'})}</td>
+                    <td>${result.transaction.description}</td>
+                    <td>${result.transaction.type.charAt(0).toUpperCase() + result.transaction.type.slice(1)}</td>
+                    <td class="amount-${result.transaction.type === 'sale' ? 'positive' : 'negative'}">
+                        ${result.transaction.type === 'sale' ? '+' : ''}$${result.transaction.amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    </td>
+                    <td>${result.transaction.ai_insight || ''}</td>
+                    <td>
+                        <button class="action-btn" onclick="editTransaction('${result.transaction.id}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="action-btn" onclick="deleteTransaction('${result.transaction.id}')">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            
+            // If there's a "no transactions" message, remove it
+            const noTransactionsRow = tbody.querySelector('tr td[colspan="6"]');
+            if (noTransactionsRow) {
+                tbody.innerHTML = '';
+            }
+            
+            // Add new transaction at the top
+            tbody.insertAdjacentHTML('afterbegin', newRow);
+            
+            // Update AI insights if provided
+            if (result.ai_insights) {
+                updateInsights(result.ai_insights);
+            }
+            
+            // Schedule next automatic update
+            setTimeout(updateDashboard, 5000);
         } else {
-            const errorData = await response.json();
-            alert(errorData.message || 'Error adding transaction');
+            alert(result.error || 'Error adding transaction. Please try again.');
         }
     } catch (err) {
         console.error('Error adding transaction:', err);
@@ -424,45 +647,275 @@ document.getElementById('addTransactionForm').addEventListener('submit', async (
     }
 });
 
-// Voice recording functionality
-let isRecording = false;
-const recordBtn = document.getElementById('recordBtn');
+// Camera Functionality
+let stream = null;
+let video = null;
 
-recordBtn.addEventListener('click', () => {
+async function startCamera() {
+    try {
+        const modal = document.getElementById('cameraModal');
+        video = document.getElementById('camera');
+        
+        stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'environment' } 
+        });
+        video.srcObject = stream;
+        
+        modal.classList.add('active');
+    } catch (err) {
+        console.error('Error accessing camera:', err);
+        alert('Could not access camera. Please check permissions.');
+    }
+}
+
+function closeCamera() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+    closeModal('cameraModal');
+}
+
+async function takePhoto() {
+    const canvas = document.getElementById('photoCanvas');
+    const context = canvas.getContext('2d');
+    const status = document.getElementById('scanningStatus');
+    
+    // Take photo
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // Convert to blob
+    canvas.toBlob(async (blob) => {
+        const formData = new FormData();
+        formData.append('receipt', blob, 'receipt.jpg');
+        
+        status.style.display = 'block';
+        
+        try {
+            const response = await fetch('/tracker/process_receipt/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                closeCamera();
+                location.reload();
+            } else {
+                alert(result.error || 'Error processing receipt');
+            }
+        } catch (err) {
+            console.error('Error processing receipt:', err);
+            alert('Error processing receipt. Please try again.');
+        } finally {
+            status.style.display = 'none';
+        }
+    }, 'image/jpeg', 0.8);
+}
+
+// Voice Recording Functionality
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
+
+recordBtn.addEventListener('click', async () => {
     if (!isRecording) {
-        startRecording();
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            
+            mediaRecorder.ondataavailable = (event) => {
+                audioChunks.push(event.data);
+            };
+            
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const formData = new FormData();
+                formData.append('audio', audioBlob);
+                
+                try {
+                    const response = await fetch('/tracker/process_voice/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        location.reload();
+                    }
+                } catch (err) {
+                    console.error('Error processing voice:', err);
+                    alert('Error processing voice recording');
+                }
+                
+                audioChunks = [];
+            };
+            
+            mediaRecorder.start();
+            isRecording = true;
+            recordBtn.classList.add('recording');
+            document.getElementById('recordingUI').classList.add('active');
+            
+        } catch (err) {
+            console.error('Error starting recording:', err);
+            alert('Could not access microphone');
+        }
     } else {
-        stopRecording();
+        mediaRecorder.stop();
+        isRecording = false;
+        recordBtn.classList.remove('recording');
+        document.getElementById('recordingUI').classList.remove('active');
     }
 });
 
-function startRecording() {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(stream => {
-                isRecording = true;
-                recordBtn.classList.add('recording');
-                // Add recording logic here
-                document.getElementById('recordingUI').classList.add('active');
-            })
-            .catch(err => {
-                console.error('Error accessing microphone:', err);
-                alert('Could not access microphone. Please check your permissions.');
-            });
-    } else {
-        alert('Voice recording is not supported in your browser.');
+// Update dashboard data every 5 seconds
+function updateDashboard() {
+    fetch('/tracker/get_dashboard_data/')
+        .then(response => response.json())
+        .then(data => {
+            // Update metrics
+            updateMetrics(data.today_metrics);
+            // Update transactions
+            updateTransactions(data.recent_transactions);
+            // Update insights
+            updateInsights(data.ai_insights);
+        })
+        .catch(error => console.error('Error updating dashboard:', error));
+}
+
+function updateMetrics(metrics) {
+    // Update Today's Revenue
+    const revenueElement = document.querySelector('.profit-card .metric-value');
+    revenueElement.textContent = `$${parseFloat(metrics.total_revenue).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    
+    // Update Today's Expenses
+    const expensesElement = document.querySelector('.loss-card .metric-value');
+    expensesElement.textContent = `$${parseFloat(metrics.total_expenses).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    
+    // Update Net Profit
+    const profitElement = document.querySelector('.card:nth-child(3) .metric-value');
+    const profitValue = parseFloat(metrics.total_profit);
+    profitElement.textContent = `$${profitValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    profitElement.className = `metric-value ${profitValue >= 0 ? 'profit-positive' : 'profit-negative'}`;
+    
+    // Update Profit Margin
+    const marginElement = document.querySelector('.card:nth-child(3) .metric-subtitle');
+    marginElement.textContent = `Profit Margin: ${parseFloat(metrics.profit_margin).toFixed(1)}%`;
+    
+    // Update Risk Score
+    const riskElement = document.querySelector('.card:nth-child(4) .metric-value');
+    const riskScore = parseFloat(metrics.risk_score);
+    const riskLevel = riskScore < 4 ? 'low' : riskScore < 7 ? 'medium' : 'high';
+    riskElement.textContent = `${riskScore.toFixed(1)}/10`;
+    riskElement.className = `metric-value risk-score-${riskLevel}`;
+    
+    document.querySelector('.card:nth-child(4) .metric-subtitle').textContent = 
+        `${riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1)} Risk Level`;
+}
+
+function updateTransactions(transactions) {
+    const tbody = document.querySelector('.transactions-table tbody');
+    if (transactions.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center;">
+                    No transactions recorded yet. Use the Quick Actions above to add your first transaction.
+                </td>
+            </tr>`;
+        return;
     }
+
+    tbody.innerHTML = transactions.map(t => `
+        <tr data-transaction-id="${t.id}">
+            <td>${new Date(t.timestamp).toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'})}</td>
+            <td>${t.description}</td>
+            <td>${t.transaction_type.charAt(0).toUpperCase() + t.transaction_type.slice(1)}</td>
+            <td class="amount-${t.transaction_type === 'sale' ? 'positive' : 'negative'}">
+                ${t.transaction_type === 'sale' ? '+' : ''}$${parseFloat(t.amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+            </td>
+            <td>${t.ai_insight || ''}</td>
+            <td>
+                <button class="action-btn" onclick="editTransaction('${t.id}')">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="action-btn" onclick="deleteTransaction('${t.id}')">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
 }
 
-function stopRecording() {
-    isRecording = false;
-    recordBtn.classList.remove('recording');
-    document.getElementById('recordingUI').classList.remove('active');
-    // Add stop recording logic here
+function updateInsights(insights) {
+    const insightsContainer = document.querySelector('.card h3:contains("AI Loss Prevention Insights")').nextElementSibling;
+    if (!insights || insights.length === 0) {
+        insightsContainer.innerHTML = `
+            <div class="insight-item">
+                <div class="insight-severity severity-low">NO INSIGHTS YET</div>
+                <h4>Start Adding Transactions</h4>
+                <p>Add your business transactions to receive AI-powered insights and recommendations.</p>
+            </div>`;
+        return;
+    }
+
+    insightsContainer.innerHTML = insights.map(insight => `
+        <div class="insight-item">
+            <div class="insight-severity severity-${insight.severity.toLowerCase()}">
+                ${insight.severity.toUpperCase()} PRIORITY
+            </div>
+            <h4>${insight.title}</h4>
+            <p>${insight.description}</p>
+        </div>
+    `).join('');
 }
 
-function closeModal(modalId) {
-    document.getElementById(modalId).classList.remove('active');
+// Start periodic updates when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    updateDashboard(); // Initial update
+    setInterval(updateDashboard, 5000); // Update every 5 seconds
+});
+
+// Add event listeners for modal close buttons and cancel buttons
+document.addEventListener('DOMContentLoaded', () => {
+    // Close button (X) handlers
+    document.querySelectorAll('.modal-close').forEach(button => {
+        button.addEventListener('click', () => {
+            const modal = button.closest('.modal');
+            closeModal(modal.id);
+        });
+    });
+
+    // Cancel button handlers
+    document.querySelectorAll('.modal .btn-danger').forEach(button => {
+        button.addEventListener('click', () => {
+            const modal = button.closest('.modal');
+            closeModal(modal.id);
+        });
+    });
+
+    // Close modal when clicking outside
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal(modal.id);
+            }
+        });
+    });
+});
+
+// Function to show modal
+function showModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('active');
+    }
 }
 </script>
 {% endblock %}

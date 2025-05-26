@@ -18,6 +18,7 @@ from .forms import BusinessForm, RegisterForm, TransactionForm
 from django.views.decorators.http import require_http_methods
 from decimal import Decimal
 import base64
+import decimal
 
 @login_required
 def dashboard(request):
@@ -154,129 +155,238 @@ def calculate_risk_score(business, date):
 @login_required
 def add_transaction(request):
     if request.method == 'POST':
-        data = json.loads(request.body)
-        transaction = Transaction.objects.create(
-            business=request.user.business,
-            transaction_type=data.get('transaction_type'),
-            amount=Decimal(data.get('amount', '0.00')),
-            description=data.get('description', '')
-        )
-        
-        update_business_metrics(transaction.business, transaction)
-        return JsonResponse({'success': True})
-    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+        try:
+            data = json.loads(request.body)
+            
+            # Validate required fields
+            if not all(key in data for key in ['transaction_type', 'amount', 'description']):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Missing required fields'
+                }, status=400)
+            
+            # Validate transaction type
+            if data['transaction_type'] not in ['sale', 'expense', 'loss']:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid transaction type'
+                }, status=400)
+            
+            # Validate amount
+            try:
+                amount = Decimal(str(data['amount']))
+                if amount <= 0:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Amount must be greater than zero'
+                    }, status=400)
+            except (ValueError, TypeError, decimal.InvalidOperation):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid amount value'
+                }, status=400)
+            
+            # Create transaction
+            transaction = Transaction.objects.create(
+                business=request.user.business,
+                transaction_type=data['transaction_type'],
+                amount=amount,
+                description=data['description'].strip()
+            )
+            
+            # Generate and save AI insight
+            insight = get_transaction_insight(transaction)
+            transaction.ai_insight = insight
+            transaction.save()
+            
+            # Update metrics
+            metrics = calculate_daily_metrics(transaction.business, timezone.now().date())
+            
+            # Generate new AI insights
+            generate_ai_insights(transaction.business)
+            
+            # Get updated AI insights
+            ai_insights = AIInsight.objects.filter(
+                business=transaction.business,
+                is_active=True
+            ).order_by('-severity', '-created_at')[:5]
+            
+            # Return complete updated data
+            return JsonResponse({
+                'success': True,
+                'transaction': {
+                    'id': transaction.id,
+                    'type': transaction.transaction_type,
+                    'amount': float(transaction.amount),
+                    'description': transaction.description,
+                    'ai_insight': transaction.ai_insight,
+                    'timestamp': transaction.timestamp.isoformat()
+                },
+                'metrics': {
+                    'total_revenue': float(metrics.total_revenue),
+                    'total_expenses': float(metrics.total_expenses),
+                    'total_profit': float(metrics.total_profit),
+                    'profit_margin': float(metrics.profit_margin),
+                    'risk_score': float(metrics.risk_score)
+                },
+                'ai_insights': [{
+                    'title': insight.title,
+                    'description': insight.description,
+                    'severity': insight.severity
+                } for insight in ai_insights]
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid JSON data'
+            }, status=400)
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+    
+    return JsonResponse({
+        'success': False,
+        'error': 'Invalid request method'
+    }, status=405)
 
 def get_transaction_insight(transaction):
     """Generate immediate AI insight for a transaction"""
+    business = transaction.business
+    transaction_type = transaction.transaction_type
+    amount = float(transaction.amount)  # Convert Decimal to float for calculations
+    
+    # Get recent transactions for comparison
+    recent_transactions = Transaction.objects.filter(
+        business=business,
+        transaction_type=transaction_type,
+        timestamp__gte=timezone.now() - timedelta(days=30)
+    ).exclude(id=transaction.id)  # Exclude current transaction
+    
+    # Calculate average amount for this type of transaction
+    avg_amount = recent_transactions.aggregate(Avg('amount'))['amount__avg']
+    avg_amount = float(avg_amount) if avg_amount else amount  # Convert Decimal to float
+    
+    # Get total transactions today
+    today_transactions = Transaction.objects.filter(
+        business=business,
+        timestamp__date=timezone.now().date()
+    )
+    
+    # Calculate daily totals
+    daily_sales = today_transactions.filter(transaction_type='sale').aggregate(Sum('amount'))['amount__sum']
+    daily_sales = float(daily_sales) if daily_sales else 0  # Convert Decimal to float
+    
+    daily_expenses = today_transactions.filter(transaction_type__in=['expense', 'loss']).aggregate(Sum('amount'))['amount__sum']
+    daily_expenses = float(daily_expenses) if daily_expenses else 0  # Convert Decimal to float
+    
     insights = {
-        'sale': [
-            '✅ Good timing (peak hour)' if 12 <= transaction.hour_of_day <= 18 else '📊 Normal timing',
-            '🎯 High margin item' if transaction.amount > 50 else '📊 Average sale value',
-            '🔥 Popular item today' if transaction.day_of_week < 5 else '📊 Weekend sale'
-        ],
-        'expense': [
-            '⚠️ Could be optimized' if transaction.amount > 30 else '📊 Normal expense',
-            '🚨 Above average cost' if transaction.amount > 100 else '💡 Consider bulk buying',
-            '📊 Regular business expense'
-        ],
-        'loss': [
-            '🚨 Pattern detected - review inventory',
-            '⚠️ Wastage increasing',
-            '💡 Consider smaller orders'
-        ]
+        'sale': {
+            'high_value': f"🌟 High-value sale! {amount/avg_amount:.1f}x above average" if amount > avg_amount * 1.5 else None,
+            'peak_hour': "⭐ Perfect timing - peak business hours" if 11 <= transaction.timestamp.hour <= 19 else None,
+            'milestone': f"🎯 Milestone: Daily sales reached ${daily_sales:,.2f}" if daily_sales > avg_amount * 3 else None,
+            'profit_margin': "💰 Great profit margin potential" if amount > 1000 else None
+        },
+        'expense': {
+            'high_cost': f"⚠️ High expense alert: {amount/avg_amount:.1f}x above average" if amount > avg_amount * 1.2 else None,
+            'timing': "📊 Good timing for restocking" if 6 <= transaction.timestamp.hour <= 10 else None,
+            'budget_warning': "🚨 Daily expense budget exceeded" if daily_expenses > daily_sales * 0.5 else None,
+            'suggestion': "💡 Consider bulk purchasing to reduce costs" if amount > 500 else None
+        },
+        'loss': {
+            'pattern': "🔍 Loss pattern detected - Review inventory" if recent_transactions.filter(transaction_type='loss').count() > 2 else None,
+            'high_loss': f"⚠️ Significant loss: {amount/avg_amount:.1f}x above average" if amount > avg_amount * 1.1 else None,
+            'action_needed': "🚨 Immediate action required - Check storage conditions" if amount > 1000 else None,
+            'prevention': "💡 Consider implementing loss prevention measures" if recent_transactions.filter(transaction_type='loss').exists() else None
+        }
     }
     
-    return insights.get(transaction.transaction_type, ['📊 Transaction recorded'])[0]
+    # Get relevant insights for this transaction type
+    type_insights = insights.get(transaction_type, {})
+    
+    # Filter out None values and get the most relevant insight
+    valid_insights = [insight for insight in type_insights.values() if insight]
+    
+    if valid_insights:
+        return valid_insights[0]  # Return the most important insight
+    
+    # Default insights if no specific conditions are met
+    default_insights = {
+        'sale': "📈 Sale recorded successfully",
+        'expense': "📊 Expense tracked and analyzed",
+        'loss': "⚠️ Loss recorded - Monitor for patterns"
+    }
+    
+    return default_insights.get(transaction_type, "✅ Transaction recorded")
 
 def generate_ai_insights(business):
-    """Generate AI insights based on transaction patterns"""
-    # Get recent transaction data
+    """Generate overall AI insights based on transaction patterns"""
+    # Get recent transactions
     recent_transactions = Transaction.objects.filter(
         business=business,
         timestamp__gte=timezone.now() - timedelta(days=30)
     )
     
-    # Detect wastage patterns
-    detect_wastage_patterns(business, recent_transactions)
+    if not recent_transactions.exists():
+        return
     
-    # Detect timing opportunities
-    detect_timing_opportunities(business, recent_transactions)
+    # Calculate key metrics
+    total_sales = recent_transactions.filter(transaction_type='sale').aggregate(Sum('amount'))['amount__sum'] or 0
+    total_expenses = recent_transactions.filter(transaction_type='expense').aggregate(Sum('amount'))['amount__sum'] or 0
+    total_losses = recent_transactions.filter(transaction_type='loss').aggregate(Sum('amount'))['amount__sum'] or 0
     
-    # Detect cost optimization opportunities
-    detect_cost_optimization(business, recent_transactions)
-
-def detect_wastage_patterns(business, transactions):
-    """Detect wastage patterns and create insights"""
-    wastage_by_day = {}
+    # Analyze patterns
+    if total_losses > total_sales * 0.1:  # Losses > 10% of sales
+        AIInsight.objects.get_or_create(
+            business=business,
+            title="High Loss Rate Detected",
+            defaults={
+                'description': f"Losses (${total_losses:,.2f}) are unusually high compared to sales. Consider reviewing inventory management practices.",
+                'severity': 'high',
+                'insight_type': 'loss_prevention',
+                'potential_savings': total_losses * 0.5
+            }
+        )
     
-    for transaction in transactions.filter(transaction_type='loss'):
-        day = transaction.day_of_week
-        wastage_by_day[day] = wastage_by_day.get(day, 0) + float(transaction.amount)
+    # Analyze expense patterns
+    if total_expenses > total_sales * 0.7:  # Expenses > 70% of sales
+        AIInsight.objects.get_or_create(
+            business=business,
+            title="High Expense Ratio",
+            defaults={
+                'description': "Expenses are consuming a large portion of revenue. Consider cost optimization strategies.",
+                'severity': 'medium',
+                'insight_type': 'cost_optimization',
+                'potential_savings': total_expenses * 0.15
+            }
+        )
     
-    if wastage_by_day:
-        worst_day = max(wastage_by_day, key=wastage_by_day.get)
-        worst_amount = wastage_by_day[worst_day]
-        
-        if worst_amount > 20:  # Threshold for significant wastage
-            days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-            
-            AIInsight.objects.get_or_create(
-                business=business,
-                insight_type='wastage',
-                title=f'High Wastage on {days[worst_day]}s',
-                defaults={
-                    'severity': 'high' if worst_amount > 50 else 'medium',
-                    'description': f'Your wastage on {days[worst_day]}s averages ${worst_amount:.2f}. Consider reducing inventory by 15-20% on this day.',
-                    'potential_savings': worst_amount * 0.7,
-                    'confidence_score': 0.8,
-                }
-            )
-
-def detect_timing_opportunities(business, transactions):
-    """Detect peak sales times and missed opportunities"""
+    # Analyze sales patterns
     sales_by_hour = {}
-    
-    for transaction in transactions.filter(transaction_type='sale'):
+    for transaction in recent_transactions.filter(transaction_type='sale'):
         hour = transaction.hour_of_day
         sales_by_hour[hour] = sales_by_hour.get(hour, 0) + float(transaction.amount)
     
     if sales_by_hour:
         peak_hour = max(sales_by_hour, key=sales_by_hour.get)
-        peak_amount = sales_by_hour[peak_hour]
-        avg_amount = sum(sales_by_hour.values()) / len(sales_by_hour)
-        
-        if peak_amount > avg_amount * 1.5:  # 50% above average
-            AIInsight.objects.get_or_create(
-                business=business,
-                insight_type='timing',
-                title=f'Peak Sales at {peak_hour}:00 Hour',
-                defaults={
-                    'severity': 'medium',
-                    'description': f'Sales spike {((peak_amount/avg_amount-1)*100):.0f}% at {peak_hour}:00. Ensure adequate inventory during this time.',
-                    'potential_revenue': (peak_amount - avg_amount) * 0.3,
-                    'confidence_score': 0.7,
-                }
-            )
-
-def detect_cost_optimization(business, transactions):
-    """Detect cost optimization opportunities"""
-    transport_costs = transactions.filter(
-        transaction_type='expense',
-        description__icontains='transport'
-    ).aggregate(total=Sum('amount'))['total'] or 0
-    
-    if transport_costs > 100:  # Monthly threshold
         AIInsight.objects.get_or_create(
             business=business,
-            insight_type='cost',
-            title='Transport Cost Optimization',
+            title=f"Peak Sales Hour Identified: {peak_hour}:00",
             defaults={
-                'severity': 'medium',
-                'description': f'Monthly transport costs: ${transport_costs}. Consider consolidating trips or finding closer suppliers.',
-                'potential_savings': transport_costs * 0.2,
-                'confidence_score': 0.6,
+                'description': f"Sales are highest at {peak_hour}:00. Consider optimizing staffing and inventory during these hours.",
+                'severity': 'low',
+                'insight_type': 'optimization',
+                'potential_revenue': sales_by_hour[peak_hour] * 0.2
             }
         )
+    
+    # Clean up old insights
+    AIInsight.objects.filter(
+        business=business,
+        created_at__lt=timezone.now() - timedelta(days=7)
+    ).update(is_active=False)
 
 # ML prediction functions
 def generate_profit_predictions(business):
