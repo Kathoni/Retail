@@ -17,47 +17,60 @@ from django.contrib.auth import login
 from .forms import BusinessForm, RegisterForm
 @login_required
 def dashboard(request):
-    # try:
-    #     business = Business.objects.get(owner=request.user)
-    # except Business.DoesNotExist:
-    #     return redirect('das')  # Redirect to business creation if none
+    try:
+        business = Business.objects.get(owner=request.user)
+    except Business.DoesNotExist:
+        return redirect('tracker:create_business')  # Redirect to business creation if none
 
-    # today = timezone.now().date()
+    today = timezone.now().date()
+    yesterday = today - timedelta(days=1)
 
-    # # Get today's metrics
-    # try:
-    #     today_metrics = BusinessMetrics.objects.get(business=business, date=today)
-    # except BusinessMetrics.DoesNotExist:
-    #     today_metrics = calculate_daily_metrics(business, today)
+    # Get today's metrics
+    try:
+        today_metrics = BusinessMetrics.objects.get(business=business, date=today)
+    except BusinessMetrics.DoesNotExist:
+        today_metrics = calculate_daily_metrics(business, today)
 
-    # # Get recent transactions
-    # recent_transactions = Transaction.objects.filter( 
-    #     business=business,
-    #     timestamp__date=today
-    # )[:10]
+    # Get yesterday's metrics for trend calculation
+    try:
+        yesterday_metrics = BusinessMetrics.objects.get(business=business, date=yesterday)
+        # Calculate trends
+        today_metrics.revenue_trend = ((today_metrics.total_revenue - yesterday_metrics.total_revenue) / 
+                                     yesterday_metrics.total_revenue * 100) if yesterday_metrics.total_revenue else 0
+        today_metrics.expense_trend = ((today_metrics.total_expenses - yesterday_metrics.total_expenses) / 
+                                     yesterday_metrics.total_expenses * 100) if yesterday_metrics.total_expenses else 0
+    except BusinessMetrics.DoesNotExist:
+        today_metrics.revenue_trend = 0
+        today_metrics.expense_trend = 0
 
-    # # Get active AI insights
-    # ai_insights = AIInsight.objects.filter(
-    #     business=business,
-    #     is_active=True
-    # )[:5]
+    # Get recent transactions
+    recent_transactions = Transaction.objects.filter(
+        business=business,
+        timestamp__date=today
+    ).order_by('-timestamp')[:10]
 
-    # # Get profit prediction for next 7 days
-    # predictions = ProfitPrediction.objects.filter(
-    #     business=business,
-    #     prediction_date__gte=today,
-    #     prediction_date__lte=today + timedelta(days=7)
-    # )
+    # Get active AI insights
+    ai_insights = AIInsight.objects.filter(
+        business=business,
+        is_active=True
+    ).order_by('-severity', '-created_at')[:5]
 
-    # context = {
-    #     'business': business,
-    #     'today_metrics': today_metrics,
-    #     'recent_transactions': recent_transactions,
-    #     'ai_insights': ai_insights,
-    #     'predictions': predictions,
-    # }
+    # Get profit prediction for next 7 days
+    predictions = ProfitPrediction.objects.filter(
+        business=business,
+        prediction_date__gte=today,
+        prediction_date__lte=today + timedelta(days=7)
+    ).order_by('prediction_date')
 
-    return render(request, 'dashboard.html')
+    context = {
+        'business': business,
+        'today_metrics': today_metrics,
+        'recent_transactions': recent_transactions,
+        'ai_insights': ai_insights,
+        'predictions': predictions,
+    }
+
+    return render(request, 'dashboard.html', context)
 def calculate_daily_metrics(business, date):
     """Calculate and store daily metrics"""
     transactions = Transaction.objects.filter(
@@ -437,7 +450,7 @@ def register(request):
         if form.is_valid():
             user = form.save()
             login(request, user)  # log in user immediately after registration
-            return redirect('dashboard')  # redirect to your dashboard or homepage
+            return redirect('tracker:dashboard')  # redirect to your dashboard or homepage
     else:
         form = RegisterForm()
     return render(request, 'register.html', {'form': form})
@@ -445,7 +458,7 @@ def register(request):
 @login_required
 def create_business(request):
     if hasattr(request.user, 'business'):
-        return redirect('dashboard')  # User already has a business
+        return redirect('tracker:dashboard')  # User already has a business
 
     if request.method == 'POST':
         form = BusinessForm(request.POST)
@@ -453,7 +466,88 @@ def create_business(request):
             business = form.save(commit=False)
             business.owner = request.user
             business.save()
-            return redirect('dashboard')
+            return redirect('tracker:dashboard')
     else:
         form = BusinessForm()
     return render(request, 'create_business.html', {'form': form})
+
+@login_required
+def get_dashboard_data(request):
+    """API endpoint for getting real-time dashboard data"""
+    try:
+        business = Business.objects.get(owner=request.user)
+    except Business.DoesNotExist:
+        return JsonResponse({'error': 'No business found'}, status=404)
+
+    today = timezone.now().date()
+    yesterday = today - timedelta(days=1)
+
+    # Get today's metrics
+    try:
+        today_metrics = BusinessMetrics.objects.get(business=business, date=today)
+    except BusinessMetrics.DoesNotExist:
+        today_metrics = calculate_daily_metrics(business, today)
+
+    # Get yesterday's metrics for trend calculation
+    try:
+        yesterday_metrics = BusinessMetrics.objects.get(business=business, date=yesterday)
+        revenue_trend = ((today_metrics.total_revenue - yesterday_metrics.total_revenue) / 
+                        yesterday_metrics.total_revenue * 100) if yesterday_metrics.total_revenue else 0
+        expense_trend = ((today_metrics.total_expenses - yesterday_metrics.total_expenses) / 
+                        yesterday_metrics.total_expenses * 100) if yesterday_metrics.total_expenses else 0
+    except BusinessMetrics.DoesNotExist:
+        revenue_trend = 0
+        expense_trend = 0
+
+    # Get recent transactions
+    recent_transactions = Transaction.objects.filter(
+        business=business,
+        timestamp__date=today
+    ).order_by('-timestamp')[:10]
+
+    # Get active AI insights
+    ai_insights = AIInsight.objects.filter(
+        business=business,
+        is_active=True
+    ).order_by('-severity', '-created_at')[:5]
+
+    # Get profit prediction for next 7 days
+    predictions = ProfitPrediction.objects.filter(
+        business=business,
+        prediction_date__gte=today,
+        prediction_date__lte=today + timedelta(days=7)
+    ).order_by('prediction_date')
+
+    # Prepare the response data
+    response_data = {
+        'today_metrics': {
+            'total_revenue': float(today_metrics.total_revenue),
+            'total_expenses': float(today_metrics.total_expenses),
+            'total_profit': float(today_metrics.total_profit),
+            'profit_margin': float(today_metrics.profit_margin),
+            'risk_score': float(today_metrics.risk_score),
+            'revenue_trend': revenue_trend,
+            'expense_trend': expense_trend,
+        },
+        'recent_transactions': [{
+            'timestamp': transaction.timestamp,
+            'description': transaction.description,
+            'transaction_type': transaction.transaction_type,
+            'amount': float(transaction.amount),
+            'ai_insight': get_transaction_insight(transaction)
+        } for transaction in recent_transactions],
+        'ai_insights': [{
+            'severity': insight.severity,
+            'title': insight.title,
+            'description': insight.description
+        } for insight in ai_insights],
+        'predictions': [{
+            'prediction_date': prediction.prediction_date,
+            'predicted_profit': float(prediction.predicted_profit),
+            'revenue_low': float(prediction.revenue_low),
+            'revenue_high': float(prediction.revenue_high),
+            'model_accuracy': float(prediction.model_accuracy)
+        } for prediction in predictions]
+    }
+
+    return JsonResponse(response_data)

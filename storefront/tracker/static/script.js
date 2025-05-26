@@ -1,152 +1,214 @@
- // Simulated Django-like functionality
-        let transactions = [];
-        let isListening = false;
-
-        function addTransaction(type) {
-            const amount = prompt(`Enter amount for ${type}:`);
-            const description = prompt('Enter description:');
-            
-            if (amount && description) {
-                const transaction = {
-                    type: type,
-                    amount: parseFloat(amount),
-                    description: description,
-                    timestamp: new Date().toLocaleTimeString(),
-                    aiInsight: generateAIInsight(type, parseFloat(amount), description)
-                };
-                
-                transactions.unshift(transaction);
-                updateDashboard();
-                showNotification(`${type} of $${amount} added successfully!`);
+// CSRF Token handling for Django
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
             }
         }
+    }
+    return cookieValue;
+}
 
-        function generateAIInsight(type, amount, description) {
-            const insights = {
-                sale: [
-                    '✅ Good timing (peak hour)',
-                    '🎯 High margin item',
-                    '📊 Average sale value',
-                    '🔥 Popular item today'
-                ],
-                expense: [
-                    '⚠️ Could be optimized',
-                    '📊 Normal expense',
-                    '🚨 Above average cost',
-                    '💡 Consider bulk buying'
-                ]
-            };
-            
-            return insights[type][Math.floor(Math.random() * insights[type].length)];
+// Add a new transaction
+function addTransaction(type) {
+    const amount = prompt(`Enter amount for ${type}:`);
+    if (!amount || isNaN(parseFloat(amount))) {
+        showNotification('Error: Please enter a valid amount', 'error');
+        return;
+    }
+
+    const description = prompt('Enter description:');
+    if (!description) {
+        showNotification('Error: Please enter a description', 'error');
+        return;
+    }
+    
+    const data = {
+        type: type,
+        amount: parseFloat(amount),
+        description: description
+    };
+
+    // Show loading notification
+    showNotification('Adding transaction...', 'info');
+
+    fetch('/tracker/add_transaction_api/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
         }
-
-        function startVoiceInput() {
-            if (isListening) return;
-            
-            isListening = true;
-            const btn = document.querySelector('.voice-btn');
-            btn.innerHTML = '🎤 Listening<span class="loading-dots"></span>';
-            btn.classList.add('pulse');
-            
-            // Simulate voice recognition
-            setTimeout(() => {
-                const voiceCommands = [
-                    { type: 'sale', amount: 35, description: 'Sold mangoes to customer' },
-                    { type: 'expense', amount: 12, description: 'Bought plastic bags' },
-                    { type: 'sale', amount: 58, description: 'Bulk sale to restaurant' },
-                    { type: 'expense', amount: 25, description: 'Fuel for transport' }
-                ];
-                
-                const randomCommand = voiceCommands[Math.floor(Math.random() * voiceCommands.length)];
-                
-                const confirmed = confirm(`I heard: "${randomCommand.description}" for $${randomCommand.amount}. Add this ${randomCommand.type}?`);
-                
-                if (confirmed) {
-                    transactions.unshift({
-                        ...randomCommand,
-                        timestamp: new Date().toLocaleTimeString(),
-                        aiInsight: generateAIInsight(randomCommand.type, randomCommand.amount, randomCommand.description)
-                    });
-                    updateDashboard();
-                    showNotification(`Voice ${randomCommand.type} added successfully!`);
-                }
-                
-                btn.innerHTML = '🎤 Voice Input';
-                btn.classList.remove('pulse');
-                isListening = false;
-            }, 3000);
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showNotification(`${type} of $${amount} added successfully!`, 'success');
+            updateDashboardData();
+        } else {
+            showNotification('Error: ' + (data.error || 'Failed to add transaction'), 'error');
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Error: Failed to add transaction. Please try again.', 'error');
+    });
+}
 
-        function startPhotoInput() {
-            showNotification('📸 Photo capture opening... (Feature simulated)');
-            setTimeout(() => {
-                const photoResults = [
-                    { type: 'expense', amount: 45.50, description: 'Wholesale vegetables receipt' },
-                    { type: 'sale', amount: 28.75, description: 'Cash register receipt' },
-                    { type: 'expense', amount: 15.25, description: 'Supplier payment receipt' }
-                ];
-                
-                const result = photoResults[Math.floor(Math.random() * photoResults.length)];
-                
-                const confirmed = confirm(`Photo processed: "${result.description}" for $${result.amount}. Add this ${result.type}?`);
-                
-                if (confirmed) {
-                    transactions.unshift({
-                        ...result,
-                        timestamp: new Date().toLocaleTimeString(),
-                        aiInsight: '📱 Added via photo scan'
-                    });
-                    updateDashboard();
-                    showNotification(`Photo ${result.type} added successfully!`);
-                }
-            }, 2000);
-        }
+// Update dashboard data without page reload
+function updateDashboardData() {
+    fetch('/tracker/get_dashboard_data/')
+        .then(response => response.json())
+        .then(data => {
+            // Update metrics
+            updateMetric('revenue', data.today_metrics.total_revenue, data.today_metrics.revenue_trend);
+            updateMetric('expenses', data.today_metrics.total_expenses, data.today_metrics.expense_trend);
+            updateMetric('profit', data.today_metrics.total_profit, data.today_metrics.profit_margin);
+            updateMetric('risk', data.today_metrics.risk_score);
 
-        function updateDashboard() {
-            // This would connect to Django backend in real implementation
-            console.log('Dashboard updated with new transaction data');
-        }
+            // Update transactions table
+            updateTransactionsTable(data.recent_transactions);
 
-        function showNotification(message) {
-            const notification = document.createElement('div');
-            notification.innerHTML = message;
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: linear-gradient(135deg, #4CAF50, #45a049);
-                color: white;
-                padding: 15px 25px;
-                border-radius: 10px;
-                font-weight: 600;
-                z-index: 1000;
-                animation: slideIn 0.3s ease;
-            `;
-            
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.remove();
-            }, 3000);
-        }
+            // Update insights
+            updateInsights(data.ai_insights);
 
-        // Initialize dashboard
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Smart Trader Analytics Dashboard Loaded');
-            
-            // Simulate real-time updates
-            setInterval(() => {
-                // This would fetch new data from Django backend
-                console.log('Checking for updates...');
-            }, 30000);
+            // Update predictions
+            updatePredictions(data.predictions);
+        })
+        .catch(error => {
+            console.error('Error updating dashboard:', error);
         });
+}
 
-        // Add CSS animation for notifications
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-            }
-        `;
-        document.head.appendChild(style);
+// Update individual metric
+function updateMetric(type, value, trend = null) {
+    const formatter = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+    });
+
+    switch(type) {
+        case 'revenue':
+            document.querySelector('.profit-card .metric-value').innerHTML = 
+                `${formatter.format(value || 0)}${getTrendIndicator(trend)}`;
+            break;
+        case 'expenses':
+            document.querySelector('.loss-card .metric-value').innerHTML = 
+                `${formatter.format(value || 0)}${getTrendIndicator(trend)}`;
+            break;
+        case 'profit':
+            const profitElement = document.querySelector('.card:nth-child(3) .metric-value');
+            profitElement.innerHTML = formatter.format(value || 0);
+            profitElement.style.color = (value >= 0) ? '#4CAF50' : '#f44336';
+            break;
+        case 'risk':
+            const riskElement = document.querySelector('.card:nth-child(4) .metric-value');
+            riskElement.innerHTML = value ? `${value.toFixed(1)}/10` : '-/10';
+            riskElement.style.color = getRiskColor(value);
+            break;
+    }
+}
+
+// Get trend indicator HTML
+function getTrendIndicator(trend) {
+    if (!trend) return '';
+    return trend > 0 
+        ? '<span class="trend-indicator trend-up">↗</span>' 
+        : '<span class="trend-indicator trend-down">↘</span>';
+}
+
+// Get risk color based on score
+function getRiskColor(score) {
+    if (!score) return '#666';
+    if (score < 4) return '#4CAF50';
+    if (score < 7) return '#FFA726';
+    return '#f44336';
+}
+
+// Update transactions table
+function updateTransactionsTable(transactions) {
+    const tbody = document.querySelector('.transactions-table tbody');
+    if (!transactions || transactions.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 20px;">
+                    No transactions recorded yet. Use the Quick Actions above to add your first transaction.
+                </td>
+            </tr>`;
+        return;
+    }
+
+    tbody.innerHTML = transactions.map(t => `
+        <tr>
+            <td>${new Date(t.timestamp).toLocaleTimeString()}</td>
+            <td>${t.description}</td>
+            <td>${t.transaction_type.charAt(0).toUpperCase() + t.transaction_type.slice(1)}</td>
+            <td class="amount-${t.transaction_type === 'sale' ? 'positive' : 'negative'}">
+                ${t.transaction_type === 'sale' ? '+' : ''}$${t.amount.toFixed(2)}
+            </td>
+            <td>${t.ai_insight || ''}</td>
+        </tr>
+    `).join('');
+}
+
+// Show notification
+function showNotification(message, type = 'success') {
+    const notification = document.createElement('div');
+    notification.innerHTML = message;
+    
+    const colors = {
+        success: 'linear-gradient(135deg, #4CAF50, #45a049)',
+        error: 'linear-gradient(135deg, #f44336, #d32f2f)',
+        info: 'linear-gradient(135deg, #2196F3, #1976D2)'
+    };
+
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${colors[type]};
+        color: white;
+        padding: 15px 25px;
+        border-radius: 10px;
+        font-weight: 600;
+        z-index: 1000;
+        animation: slideIn 0.3s ease;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+// Photo input placeholder
+function startPhotoInput() {
+    showNotification('📸 Photo capture feature coming soon!', 'info');
+}
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    // Set up periodic updates
+    setInterval(updateDashboardData, 30000); // Update every 30 seconds
+});
+
+// Add CSS animation for notifications
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+`;
+document.head.appendChild(style);

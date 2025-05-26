@@ -29,6 +29,7 @@ urlpatterns = [
     path('accounts/login/', auth_views.LoginView.as_view(), name='login'),
     path('login/', auth_views.LoginView.as_view()),
     path('register/', views.register, name='register'),
-     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
-
+    path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
+    path('add_transaction_api/', views.add_transaction_api, name='add_transaction_api'),
+    path('get_dashboard_data/', views.get_dashboard_data, name='get_dashboard_data'),
 ]

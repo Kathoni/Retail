@@ -78,6 +78,10 @@ class Transaction(models.Model):
         return f"{self.business.name} - {self.transaction_type} - ${self.amount}"
     
     def save(self, *args, **kwargs):
+        # Set timestamp if not already set
+        if not self.timestamp:
+            self.timestamp = timezone.now()
+        
         # Auto-populate day and hour
         self.day_of_week = self.timestamp.weekday()
         self.hour_of_day = self.timestamp.hour
