@@ -98,4 +98,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Support
 
-For support, email support@smarttrader.com or open an issue in the repository. 
+For support, email thrusherkeys@gmail.com or open an issue in the repository. 
