@@ -90,7 +90,7 @@ AI-Powered Profit Tracking & Loss Prevention for Small Businesses
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please feel free to submit a Pull Request. I will respond.
 
 ## License
 
